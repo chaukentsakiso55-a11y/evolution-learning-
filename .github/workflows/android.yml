@@ -1,8 +1,8 @@
-name: Android build
+name: Infinity OS Android APK
 on:
   push:
-    branches: ["main"]
-  pull_request:
+    branches: ["infinity-android-build"]
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
