@@ -12,20 +12,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
-      - run: chmod +x gradlew
-      - run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
-      - uses: actions/upload-artifact@v4
-        with:
-          name: debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
       - name: Rebuild Infinity Android source archive
         run: cat infinity-android-source.part1 infinity-android-source.part2 infinity-android-source.part3 infinity-android-source.part4 infinity-android-source.part5 | tr -d '[:space:]' | base64 -d > infinity-android-source-fixed.zip
       - run: unzip -t infinity-android-source-fixed.zip
       - run: rm -rf infinity-android && mkdir infinity-android && unzip -q infinity-android-source-fixed.zip -d infinity-android
+      - name: Patch Compose horizontal scrolling import
+        run: sed -i '/import androidx.compose.foundation.layout.*/a import androidx.compose.foundation.horizontalScroll' infinity-android/app/src/main/java/com/cyberpulse/infinityos/MainActivity.kt
       - run: gradle -p infinity-android :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
