@@ -20,14 +20,5 @@ jobs:
       - run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
+          name: Evolution-Learning-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
-      - name: Rebuild Infinity Android source archive
-        run: cat infinity-android-source.part1 infinity-android-source.part2 infinity-android-source.part3 infinity-android-source.part4 infinity-android-source.part5 | tr -d '[:space:]' | base64 -d > infinity-android-source-fixed.zip
-      - run: unzip -t infinity-android-source-fixed.zip
-      - run: rm -rf infinity-android && mkdir infinity-android && unzip -q infinity-android-source-fixed.zip -d infinity-android
-      - run: gradle -p infinity-android :app:assembleDebug --stacktrace
-      - uses: actions/upload-artifact@v4
-        with:
-          name: Infinity-OS-Android-APK
-          path: infinity-android/app/build/outputs/apk/debug/app-debug.apk
