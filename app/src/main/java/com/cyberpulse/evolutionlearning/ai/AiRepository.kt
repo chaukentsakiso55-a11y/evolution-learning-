@@ -1,12 +1,16 @@
 package com.cyberpulse.evolutionlearning.ai
 
-import com.google.firebase.Firebase
-import com.google.firebase.ai.ai
-import com.google.firebase.ai.type.GenerativeBackend
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
 
 class AiRepository {
-    private val model = Firebase.ai(backend = GenerativeBackend.googleAI())
-        .generativeModel("gemini-3.7-flash")
+    private val endpoint =
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
 
     suspend fun runFeature(
         feature: AiFeature,
@@ -57,9 +61,67 @@ class AiRepository {
             """.trimIndent()
         }
 
-        val response = model.generateContent(prompt)
-        response.text?.trim().takeUnless { it.isNullOrBlank() }
-            ?: error("The AI returned no text. Please try again.")
+        requestGemini(prompt)
+    }
+
+    private suspend fun requestGemini(prompt: String): String = withContext(Dispatchers.IO) {
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 20_000
+            readTimeout = 60_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+            setRequestProperty("x-goog-api-key", EmbeddedGeminiKey.value())
+        }
+
+        try {
+            val requestJson = JSONObject()
+                .put(
+                    "contents",
+                    org.json.JSONArray().put(
+                        JSONObject().put(
+                            "parts",
+                            org.json.JSONArray().put(JSONObject().put("text", prompt))
+                        )
+                    )
+                )
+
+            connection.outputStream.bufferedWriter(Charsets.UTF_8).use { writer ->
+                writer.write(requestJson.toString())
+            }
+
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val body = BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
+
+            if (status !in 200..299) {
+                val apiMessage = runCatching {
+                    JSONObject(body).optJSONObject("error")?.optString("message")
+                }.getOrNull()
+                error(apiMessage?.takeIf { it.isNotBlank() } ?: "Gemini request failed with HTTP $status")
+            }
+
+            val root = JSONObject(body)
+            val candidates = root.optJSONArray("candidates")
+                ?: error("The AI returned no candidates. Please try again.")
+            val content = candidates.optJSONObject(0)?.optJSONObject("content")
+                ?: error("The AI returned no content. Please try again.")
+            val parts = content.optJSONArray("parts")
+                ?: error("The AI returned no text. Please try again.")
+
+            buildString {
+                for (i in 0 until parts.length()) {
+                    val text = parts.optJSONObject(i)?.optString("text").orEmpty()
+                    if (text.isNotBlank()) {
+                        if (isNotEmpty()) append("\n")
+                        append(text)
+                    }
+                }
+            }.trim().takeIf { it.isNotBlank() }
+                ?: error("The AI returned no text. Please try again.")
+        } finally {
+            connection.disconnect()
+        }
     }
 }
 
