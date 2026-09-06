@@ -2,7 +2,7 @@ name: Android build
 on:
   push:
     branches: ["main"]
-  pull_request:
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,11 +14,9 @@ jobs:
           java-version: "17"
           cache: gradle
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.11.1"
       - run: chmod +x gradlew
       - run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Evolution-Learning-debug-apk
+          name: Evolution-Learning-v5-Firebase-debug
           path: app/build/outputs/apk/debug/app-debug.apk
