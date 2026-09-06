@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -47,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +60,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.cyberpulse.evolutionlearning.ai.AiFeature
+import com.cyberpulse.evolutionlearning.ai.AiRepository
 import com.cyberpulse.evolutionlearning.data.FirebaseRepository
 import com.cyberpulse.evolutionlearning.model.HomeworkItem
 import com.cyberpulse.evolutionlearning.model.Progress
@@ -65,6 +69,7 @@ import com.cyberpulse.evolutionlearning.model.StudyGoal
 import com.cyberpulse.evolutionlearning.model.UserProfile
 import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val Cyan = Color(0xFF38BDF8)
 private val Blue = Color(0xFF2563EB)
@@ -73,6 +78,7 @@ private val Bg = Color(0xFF050B14)
 private val CardBg = Color(0xCC0C1726)
 private val Muted = Color(0xFF93A4BC)
 private val Good = Color(0xFF4ADE80)
+private val Warn = Color(0xFFF59E0B)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,6 +90,7 @@ class MainActivity : ComponentActivity() {
 private enum class RootTab(val label: String, val glyph: String) {
     HOME("Home", "⌂"),
     STUDY("Study", "▣"),
+    AI("AI", "✦"),
     PROGRESS("Progress", "↗"),
     PROFILE("Me", "◉")
 }
@@ -116,7 +123,7 @@ private fun EvolutionLearningApp() {
         Box(
             Modifier.fillMaxSize().background(
                 Brush.radialGradient(
-                    listOf(Color(0xFF102A42), Bg, Color(0xFF130A22)),
+                    colors = listOf(Color(0xFF102A42), Bg, Color(0xFF130A22)),
                     radius = 1400f
                 )
             )
@@ -163,7 +170,7 @@ private fun AuthScreen(repository: FirebaseRepository) {
         item {
             Text("📚", fontSize = 48.sp)
             Text("EVOLUTION", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Cyan)
-            Text("LEARNING v5", fontSize = 11.sp, letterSpacing = 4.sp, color = Muted)
+            Text("LEARNING v5.1", fontSize = 11.sp, letterSpacing = 4.sp, color = Muted)
             Spacer(Modifier.height(8.dp))
             Text("Learn → Practice → Improve → Evolve", color = Muted, textAlign = TextAlign.Center)
             Spacer(Modifier.height(24.dp))
@@ -172,7 +179,7 @@ private fun AuthScreen(repository: FirebaseRepository) {
             GlassCard {
                 Text(if (createMode) "Create your account" else "Welcome back", fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    if (createMode) "Your real progress will sync securely with Firebase." else "Sign in with your Evolution Learning account.",
+                    if (createMode) "Progress and learning activity sync with Firebase." else "Sign in with your Evolution Learning account.",
                     color = Muted,
                     fontSize = 13.sp
                 )
@@ -317,7 +324,10 @@ private fun SignedInApp(repository: FirebaseRepository, user: FirebaseUser) {
         val g = repository.listenToGoals(user.uid, { goals = it }, { syncError = it.localizedMessage })
         val h = repository.listenToHomework(user.uid, { homework = it }, { syncError = it.localizedMessage })
         onDispose {
-            p.remove(); r.remove(); g.remove(); h.remove()
+            p.remove()
+            r.remove()
+            g.remove()
+            h.remove()
         }
     }
 
@@ -329,8 +339,8 @@ private fun SignedInApp(repository: FirebaseRepository, user: FirebaseUser) {
                     NavigationBarItem(
                         selected = selected == tab,
                         onClick = { selected = tab },
-                        icon = { Text(tab.glyph, fontSize = 19.sp) },
-                        label = { Text(tab.label) },
+                        icon = { Text(tab.glyph, fontSize = 18.sp) },
+                        label = { Text(tab.label, fontSize = 9.sp) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = Cyan,
                             selectedTextColor = Cyan,
@@ -346,6 +356,7 @@ private fun SignedInApp(repository: FirebaseRepository, user: FirebaseUser) {
         when (selected) {
             RootTab.HOME -> HomeScreen(profile, progress, goals, homework, syncError, padding) { selected = RootTab.STUDY }
             RootTab.STUDY -> StudyScreen(repository, goals, homework, padding)
+            RootTab.AI -> AiScreen(profile, padding)
             RootTab.PROGRESS -> ProgressScreen(progress, padding)
             RootTab.PROFILE -> ProfileScreen(repository, profile, padding)
         }
@@ -374,16 +385,14 @@ private fun HomeScreen(
                 Spacer(Modifier.height(7.dp))
                 Text("Learn smarter. Track what you actually do.", fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(8.dp))
-                Text("No fake progress — every number below comes from completed activity saved to your account.", color = Muted, fontSize = 13.sp)
+                Text("AI tools are now wired through Firebase AI Logic, while progress still records only completed activity.", color = Muted, fontSize = 13.sp)
                 Spacer(Modifier.height(14.dp))
                 Button(onClick = openStudy, colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Color(0xFF001018))) {
                     Text("Start studying", fontWeight = FontWeight.Bold)
                 }
             }
         }
-        if (syncError != null) {
-            item { NoticeCard("Sync issue", syncError, Color(0xFFF59E0B)) }
-        }
+        if (syncError != null) item { NoticeCard("Sync issue", syncError, Warn) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard("Study time", formatStudyTime(progress.studySeconds), "completed focus", Cyan, Modifier.weight(1f))
@@ -401,7 +410,7 @@ private fun HomeScreen(
             GlassCard {
                 Text("🎯 Study goals", fontWeight = FontWeight.Bold)
                 Text("${goals.count { it.completed }} completed · ${goals.count { !it.completed }} active", color = Muted)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 goals.filter { !it.completed }.take(3).forEach { Text("• ${it.title}", modifier = Modifier.padding(vertical = 3.dp)) }
                 if (goals.none { !it.completed }) Text("No active goals yet. Add one in Study.", color = Muted)
             }
@@ -410,7 +419,7 @@ private fun HomeScreen(
             GlassCard {
                 Text("📝 Homework", fontWeight = FontWeight.Bold)
                 Text("${homework.count { it.completed }} completed · ${homework.count { !it.completed }} pending", color = Muted)
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 homework.filter { !it.completed }.take(3).forEach { Text("• ${it.subject}: ${it.title}", modifier = Modifier.padding(vertical = 3.dp)) }
                 if (homework.none { !it.completed }) Text("No pending homework yet.", color = Muted)
             }
@@ -435,7 +444,7 @@ private fun StudyScreen(repository: FirebaseRepository, goals: List<StudyGoal>, 
         } else if (running && secondsLeft == 0) {
             running = false
             repository.recordCompletedFocusSession(focusMinutes * 60L) { result ->
-                focusMessage = if (result.isSuccess) "Focus session saved to your real progress." else result.exceptionOrNull()?.localizedMessage
+                focusMessage = if (result.isSuccess) "Focus session saved to your progress." else result.exceptionOrNull()?.localizedMessage
             }
         }
     }
@@ -449,7 +458,7 @@ private fun StudyScreen(repository: FirebaseRepository, goals: List<StudyGoal>, 
         item {
             GlassCard {
                 Text("🔒 Focus session", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Only a fully completed timer is added to your study time.", color = Muted, fontSize = 12.sp)
+                Text("Only a fully completed timer is added to study time.", color = Muted, fontSize = 12.sp)
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     listOf(25, 45, 60).forEach { value ->
@@ -480,17 +489,10 @@ private fun StudyScreen(repository: FirebaseRepository, goals: List<StudyGoal>, 
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = goalText, onValueChange = { goalText = it }, modifier = Modifier.fillMaxWidth(), label = { Text("New study goal") }, singleLine = true)
                 Spacer(Modifier.height(8.dp))
-                Button(onClick = {
-                    repository.addGoal(goalText) { if (it.isSuccess) goalText = "" }
-                }, enabled = goalText.isNotBlank()) { Text("Add goal") }
+                Button(onClick = { repository.addGoal(goalText) { if (it.isSuccess) goalText = "" } }, enabled = goalText.isNotBlank()) { Text("Add goal") }
                 Spacer(Modifier.height(8.dp))
                 goals.take(6).forEach { goal ->
-                    ActionRow(
-                        title = goal.title,
-                        subtitle = if (goal.completed) "Completed" else "Active",
-                        done = goal.completed,
-                        action = if (goal.completed) null else { { repository.completeGoal(goal.id) } }
-                    )
+                    ActionRow(goal.title, if (goal.completed) "Completed" else "Active", goal.completed, if (goal.completed) null else { { repository.completeGoal(goal.id) } })
                 }
             }
         }
@@ -504,27 +506,115 @@ private fun StudyScreen(repository: FirebaseRepository, goals: List<StudyGoal>, 
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = {
                     repository.addHomework(hwSubject, hwTitle) {
-                        if (it.isSuccess) { hwSubject = ""; hwTitle = "" }
+                        if (it.isSuccess) {
+                            hwSubject = ""
+                            hwTitle = ""
+                        }
                     }
                 }, enabled = hwSubject.isNotBlank() && hwTitle.isNotBlank()) { Text("Add homework") }
                 Spacer(Modifier.height(8.dp))
                 homework.take(6).forEach { item ->
-                    ActionRow(
-                        title = "${item.subject}: ${item.title}",
-                        subtitle = if (item.completed) "Completed" else "Pending",
-                        done = item.completed,
-                        action = if (item.completed) null else { { repository.completeHomework(item.id) } }
-                    )
+                    ActionRow("${item.subject}: ${item.title}", if (item.completed) "Completed" else "Pending", item.completed, if (item.completed) null else { { repository.completeHomework(item.id) } })
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AiScreen(profile: UserProfile, padding: PaddingValues) {
+    val ai = remember { AiRepository() }
+    val scope = rememberCoroutineScope()
+    var feature by remember { mutableStateOf(AiFeature.TUTOR) }
+    var input by remember { mutableStateOf("") }
+    var output by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
+        contentPadding = PaddingValues(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item { SimpleHeader("✦", "Evolution AI", "Gemini through Firebase AI Logic") }
         item {
             NoticeCard(
-                "🤖 AI Tutor",
-                "The interface is reserved, but AI is not faked. A secure backend/model connection still needs to be configured before AI answers are enabled.",
-                Purple
+                "Private AI connection",
+                "The Gemini provider credential is not embedded in this APK. Requests go through Firebase AI Logic so the provider credential stays server-side.",
+                Good
             )
         }
+        item {
+            GlassCard {
+                Text("Choose an AI tool", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    AiFeature.entries.forEach { option ->
+                        SmallChip(option.label, feature == option) {
+                            feature = option
+                            output = null
+                            error = null
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("For ${profile.grade}", color = Cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier.fillMaxWidth().height(180.dp),
+                    label = { Text(feature.hint) }
+                )
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        busy = true
+                        error = null
+                        output = null
+                        scope.launch {
+                            val result = ai.runFeature(feature, profile.grade, input)
+                            busy = false
+                            result.onSuccess { output = it }
+                                .onFailure { error = friendlyAiError(it) }
+                        }
+                    },
+                    enabled = input.isNotBlank() && !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Purple, contentColor = Color(0xFF12051D))
+                ) {
+                    if (busy) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Thinking…")
+                    } else {
+                        Text("Run ${feature.label}", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        if (error != null) item { NoticeCard("AI connection issue", error!!, Warn) }
+        if (output != null) {
+            item {
+                GlassCard {
+                    Text("AI response", color = Purple, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    Text(output!!, lineHeight = 21.sp)
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = { output = null; input = "" }) { Text("Clear") }
+                }
+            }
+        }
+    }
+}
+
+private fun friendlyAiError(error: Throwable): String {
+    val message = error.localizedMessage.orEmpty()
+    return when {
+        message.contains("permission", ignoreCase = true) || message.contains("403") ->
+            "Firebase AI Logic is not enabled for this app yet, or App Check is blocking this build. Finish the Firebase AI Logic setup for the Evolution Learning project and try again."
+        message.contains("network", ignoreCase = true) || message.contains("unavailable", ignoreCase = true) ->
+            "The AI service could not be reached. Check the internet connection and try again."
+        else -> message.ifBlank { "The AI request failed. Please try again." }
     }
 }
 
@@ -560,8 +650,7 @@ private fun QuizCard(repository: FirebaseRepository) {
             Button(
                 onClick = {
                     val chosen = selected ?: return@Button
-                    val wasCorrect = chosen == question.correct
-                    val finalScore = score + if (wasCorrect) 1 else 0
+                    val finalScore = score + if (chosen == question.correct) 1 else 0
                     score = finalScore
                     if (index == questions.lastIndex) {
                         finished = true
@@ -586,7 +675,7 @@ private fun FlashcardCard(repository: FirebaseRepository) {
     val cards = remember {
         listOf(
             "What is the formula for force?" to "F = ma",
-            "What is the capital of South Africa's Limpopo province?" to "Polokwane",
+            "What is the capital of Limpopo?" to "Polokwane",
             "What is 12 × 8?" to "96"
         )
     }
@@ -612,7 +701,7 @@ private fun FlashcardCard(repository: FirebaseRepository) {
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { index = (index - 1 + cards.size) % cards.size; revealed = false }) { Text("Prev") }
+            OutlinedButton(onClick = { index = (index - 1 + cards.size) % cards.size; revealed = false }) { Text("Previous") }
             Button(onClick = { index = (index + 1) % cards.size; revealed = false }) { Text("Next") }
         }
     }
@@ -651,7 +740,6 @@ private fun ProgressScreen(progress: Progress, padding: PaddingValues) {
                 MetricCard("Homework", progress.homeworkCompleted.toString(), "completed", Purple, Modifier.weight(1f))
             }
         }
-        item { NoticeCard("How progress works", "The app starts from zero. Firebase updates these totals only after a real quiz, completed focus timer, reviewed flashcard, completed goal, or completed homework item.", Cyan) }
     }
 }
 
@@ -678,7 +766,7 @@ private fun ProfileScreen(repository: FirebaseRepository, profile: UserProfile, 
         item {
             GlassCard {
                 Text("Account security", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Passwords are handled by Firebase Authentication, not stored inside the app.", color = Muted, fontSize = 12.sp)
+                Text("Passwords are handled by Firebase Authentication and the Gemini provider credential is not stored in the APK.", color = Muted, fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
                 OutlinedButton(onClick = {
                     repository.sendPasswordReset(profile.email) {
@@ -690,7 +778,6 @@ private fun ProfileScreen(repository: FirebaseRepository, profile: UserProfile, 
                 Button(onClick = repository::signOut, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))) { Text("Sign out") }
             }
         }
-        item { NoticeCard("Firebase", "Authentication: Email/Password · Database: Cloud Firestore · App Check: Play Integrity will be added after the signing SHA-256 is registered.", Cyan) }
     }
 }
 
@@ -699,7 +786,7 @@ private fun Header(profile: UserProfile) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
         Column {
             Text("EVOLUTION", color = Cyan, fontWeight = FontWeight.Black, fontSize = 19.sp)
-            Text("LEARNING v5", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
+            Text("LEARNING v5.1 AI", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(profile.name.ifBlank { "Student" }, fontWeight = FontWeight.Bold, fontSize = 13.sp)
@@ -741,7 +828,11 @@ private fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun MetricCard(label: String, value: String, sub: String, accent: Color, modifier: Modifier = Modifier) {
-    Card(modifier = modifier.border(1.dp, accent.copy(alpha = 0.14f), RoundedCornerShape(16.dp)), colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(16.dp)) {
+    Card(
+        modifier = modifier.border(1.dp, accent.copy(alpha = 0.14f), RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(16.dp)
+    ) {
         Column(Modifier.padding(14.dp)) {
             Text(label, color = Muted, fontSize = 11.sp)
             Text(value, fontSize = 24.sp, fontWeight = FontWeight.Black, color = accent)
@@ -766,9 +857,9 @@ private fun SmallChip(label: String, selected: Boolean, onClick: () -> Unit) {
         Modifier.clip(RoundedCornerShape(10.dp))
             .background(if (selected) Cyan else Color.White.copy(alpha = 0.04f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .padding(horizontal = 9.dp, vertical = 8.dp)
     ) {
-        Text(label, color = if (selected) Color(0xFF001018) else Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = if (selected) Color(0xFF001018) else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }
 
