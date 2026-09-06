@@ -13,8 +13,8 @@ android {
         applicationId = "com.cyberpulse.evolutionlearning"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "5.0.0-firebase"
+        versionCode = 6
+        versionName = "5.1.0-ai"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -62,6 +62,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:34.18.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-ai")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
