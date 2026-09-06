@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "822374572937",
+    "firebase_url": "https://evolution-learning-d42bd-default-rtdb.firebaseio.com",
+    "project_id": "evolution-learning-d42bd",
+    "storage_bucket": "evolution-learning-d42bd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822374572937:android:7e0043a625778893597758",
+        "android_client_info": {
+          "package_name": "com.cyberpulse.evolutionlearning"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "822374572937-mvj0mega5pm2bro0u3ccak9qs764fsj8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXIzAnUaH0uOfWh1x71q14zGWZxBnvCEk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "822374572937-mvj0mega5pm2bro0u3ccak9qs764fsj8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
