@@ -13,8 +13,8 @@ android {
         applicationId = "com.cyberpulse.evolutionlearning"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "5.2.0-html-native"
+        versionCode = 8
+        versionName = "5.3.0-study-lock"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
