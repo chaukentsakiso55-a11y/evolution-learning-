@@ -1,9 +1,12 @@
 package com.cyberpulse.evolutionlearning
 
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
 import android.util.Patterns
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -30,10 +34,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -54,11 +56,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.cyberpulse.evolutionlearning.ai.AiFeature
 import com.cyberpulse.evolutionlearning.ai.AiRepository
 import com.cyberpulse.evolutionlearning.data.FirebaseRepository
@@ -66,32 +71,46 @@ import com.cyberpulse.evolutionlearning.model.HomeworkItem
 import com.cyberpulse.evolutionlearning.model.Progress
 import com.cyberpulse.evolutionlearning.model.StudyGoal
 import com.cyberpulse.evolutionlearning.model.UserProfile
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseUser
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.util.Locale
 
-private val Cyan = Color(0xFF38BDF8)
+private val Accent = Color(0xFF38BDF8)
 private val Blue = Color(0xFF2563EB)
 private val Purple = Color(0xFFC084FC)
-private val Bg = Color(0xFF050B14)
-private val CardBg = Color(0xCC0C1726)
-private val Muted = Color(0xFF93A4BC)
+private val Gold = Color(0xFFFBBF24)
+private val Orange = Color(0xFFFB923C)
 private val Good = Color(0xFF4ADE80)
-private val Warn = Color(0xFFF59E0B)
+private val Red = Color(0xFFF87171)
+private val Bg = Color(0xFF050F1A)
+private val CardBg = Color(0x0AFFFFFF)
+private val HeaderBg = Color(0xCC050F1A)
+private val Muted = Color(0x80FFFFFF)
+private val Faint = Color(0x61FFFFFF)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FirebaseApp.initializeApp(this)
+        AppCheckConfig.install()
         setContent { EvolutionLearningApp() }
     }
 }
 
-private enum class RootTab(val label: String, val glyph: String) {
-    HOME("Home", "⌂"),
-    STUDY("Study", "▣"),
-    AI("AI", "✦"),
-    PROGRESS("Progress", "↗"),
-    PROFILE("Me", "◉")
+private enum class RootTab(val label: String, val icon: String) {
+    HOME("Home", "🏠"),
+    STUDY("Study", "📖"),
+    AI("AI", "🤖"),
+    QUIZ("Quiz", "✏️"),
+    STATS("Stats", "📊"),
+    ME("Me", "👤"),
+    ALERTS("Alerts", "🔔")
 }
 
 @Composable
@@ -110,11 +129,11 @@ private fun EvolutionLearningApp() {
 
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = Cyan,
+            primary = Accent,
             secondary = Purple,
             background = Bg,
             surface = CardBg,
-            onPrimary = Color(0xFF001018),
+            onPrimary = Bg,
             onBackground = Color.White,
             onSurface = Color.White
         )
@@ -122,8 +141,8 @@ private fun EvolutionLearningApp() {
         Box(
             Modifier.fillMaxSize().background(
                 Brush.radialGradient(
-                    colors = listOf(Color(0xFF102A42), Bg, Color(0xFF130A22)),
-                    radius = 1400f
+                    colors = listOf(Color(0xFF0C1B33), Bg, Color(0xFF130820)),
+                    radius = 1500f
                 )
             )
         ) {
@@ -140,10 +159,11 @@ private fun EvolutionLearningApp() {
 private fun LoadingScreen() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("EVOLUTION", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Cyan)
-            Text("LEARNING", fontSize = 12.sp, letterSpacing = 5.sp, color = Muted)
-            Spacer(Modifier.height(20.dp))
-            CircularProgressIndicator(color = Cyan)
+            Text("📚", fontSize = 42.sp)
+            Text("EVOLUTION", color = Accent, fontSize = 26.sp, fontWeight = FontWeight.Black)
+            Text("LEARNING", color = Muted, fontSize = 9.sp, letterSpacing = 3.sp)
+            Spacer(Modifier.height(18.dp))
+            CircularProgressIndicator(color = Accent)
         }
     }
 }
@@ -162,51 +182,32 @@ private fun AuthScreen(repository: FirebaseRepository) {
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().statusBarsPadding(),
-        contentPadding = PaddingValues(22.dp),
+        contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
-            Text("📚", fontSize = 48.sp)
-            Text("EVOLUTION", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Cyan)
-            Text("LEARNING v5.1", fontSize = 11.sp, letterSpacing = 4.sp, color = Muted)
-            Spacer(Modifier.height(8.dp))
-            Text("Learn → Practice → Improve → Evolve", color = Muted, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(24.dp))
+            Text("📚", fontSize = 52.sp)
+            Text("EVOLUTION", color = Accent, fontSize = 31.sp, fontWeight = FontWeight.Black)
+            Text("LEARNING v5.2", color = Muted, fontSize = 10.sp, letterSpacing = 4.sp)
+            Text("Learn • Practice • Improve • Evolve", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp, bottom = 22.dp))
         }
         item {
-            GlassCard {
-                Text(if (createMode) "Create your account" else "Welcome back", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    if (createMode) "Progress and learning activity sync with Firebase." else "Sign in with your Evolution Learning account.",
-                    color = Muted,
-                    fontSize = 13.sp
-                )
-                Spacer(Modifier.height(16.dp))
+            HtmlCard {
+                Text(if (createMode) "Create Account" else "Welcome Back", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Accent)
+                Spacer(Modifier.height(10.dp))
                 if (createMode) {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Full name") },
-                        singleLine = true
-                    )
+                    HtmlField(name, { name = it }, "Full name")
                     Spacer(Modifier.height(8.dp))
-                    Text("Grade", fontSize = 12.sp, color = Muted)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Your Grade", color = Faint, fontSize = 11.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         listOf("Grade 9", "Grade 10", "Grade 11", "Grade 12").forEach { option ->
-                            SmallChip(option.removePrefix("Grade "), grade == option) { grade = option }
+                            TinyChip(option.removePrefix("Grade "), grade == option) { grade = option }
                         }
                     }
                     Spacer(Modifier.height(8.dp))
                 }
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Email") },
-                    singleLine = true
-                )
+                HtmlField(email, { email = it }, "Email")
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = password,
@@ -228,79 +229,54 @@ private fun AuthScreen(repository: FirebaseRepository) {
                     )
                 }
                 if (message != null) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(message!!, color = if (error) Color(0xFFFCA5A5) else Good, fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text(message!!, color = if (error) Red else Good, fontSize = 11.sp)
                 }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = {
                         message = null
                         error = false
                         val cleanEmail = email.trim()
                         when {
-                            !Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> {
-                                message = "Enter a valid email address."
-                                error = true
-                            }
-                            password.length < 6 -> {
-                                message = "Password must be at least 6 characters."
-                                error = true
-                            }
-                            createMode && name.trim().length < 2 -> {
-                                message = "Enter your name."
-                                error = true
-                            }
-                            createMode && password != confirm -> {
-                                message = "Passwords do not match."
-                                error = true
-                            }
+                            !Patterns.EMAIL_ADDRESS.matcher(cleanEmail).matches() -> { message = "Enter a valid email."; error = true }
+                            password.length < 6 -> { message = "Password must be at least 6 characters."; error = true }
+                            createMode && name.trim().length < 2 -> { message = "Enter your name."; error = true }
+                            createMode && password != confirm -> { message = "Passwords do not match."; error = true }
                             else -> {
                                 busy = true
-                                if (createMode) {
-                                    repository.signUp(name, cleanEmail, password, grade) { result ->
-                                        busy = false
-                                        result.exceptionOrNull()?.let {
-                                            message = it.localizedMessage ?: "Account creation failed."
-                                            error = true
-                                        }
-                                    }
-                                } else {
-                                    repository.signIn(cleanEmail, password) { result ->
-                                        busy = false
-                                        result.exceptionOrNull()?.let {
-                                            message = it.localizedMessage ?: "Sign in failed."
-                                            error = true
-                                        }
-                                    }
+                                if (createMode) repository.signUp(name, cleanEmail, password, grade) { result ->
+                                    busy = false
+                                    result.exceptionOrNull()?.let { message = it.localizedMessage ?: "Account creation failed."; error = true }
+                                } else repository.signIn(cleanEmail, password) { result ->
+                                    busy = false
+                                    result.exceptionOrNull()?.let { message = it.localizedMessage ?: "Sign in failed."; error = true }
                                 }
                             }
                         }
                     },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Color(0xFF001018))
+                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    if (busy) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Text(if (createMode) "Create account" else "Sign in", fontWeight = FontWeight.Bold)
+                    if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(if (createMode) "Create Account" else "Sign In", fontWeight = FontWeight.Bold)
                 }
                 if (!createMode) {
                     TextButton(onClick = {
-                        if (!Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
-                            message = "Enter your email first, then tap Forgot password."
-                            error = true
-                        } else {
+                        if (Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) {
                             repository.sendPasswordReset(email) { result ->
                                 message = if (result.isSuccess) "Password reset email sent." else result.exceptionOrNull()?.localizedMessage
                                 error = result.isFailure
                             }
+                        } else {
+                            message = "Enter your email first."
+                            error = true
                         }
                     }) { Text("Forgot password?") }
                 }
-                TextButton(onClick = {
-                    createMode = !createMode
-                    message = null
-                    error = false
-                }) {
+                TextButton(onClick = { createMode = !createMode; message = null; error = false }) {
                     Text(if (createMode) "Already have an account? Sign in" else "New here? Create an account")
                 }
             }
@@ -322,198 +298,437 @@ private fun SignedInApp(repository: FirebaseRepository, user: FirebaseUser) {
         val r = repository.listenToProgress(user.uid, { progress = it }, { syncError = it.localizedMessage })
         val g = repository.listenToGoals(user.uid, { goals = it }, { syncError = it.localizedMessage })
         val h = repository.listenToHomework(user.uid, { homework = it }, { syncError = it.localizedMessage })
-        onDispose {
-            p.remove()
-            r.remove()
-            g.remove()
-            h.remove()
-        }
+        onDispose { p.remove(); r.remove(); g.remove(); h.remove() }
     }
 
     Scaffold(
         containerColor = Color.Transparent,
+        topBar = { HtmlHeader(profile, progress) },
         bottomBar = {
-            NavigationBar(containerColor = Color(0xF20A111C), modifier = Modifier.navigationBarsPadding()) {
-                RootTab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = selected == tab,
-                        onClick = { selected = tab },
-                        icon = { Text(tab.glyph, fontSize = 18.sp) },
-                        label = { Text(tab.label, fontSize = 9.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Cyan,
-                            selectedTextColor = Cyan,
-                            indicatorColor = Cyan.copy(alpha = 0.12f),
-                            unselectedIconColor = Muted,
-                            unselectedTextColor = Muted
-                        )
-                    )
-                }
-            }
+            HtmlBottomBar(
+                selected = selected,
+                hasAlert = syncError != null,
+                onSelect = { selected = it }
+            )
         }
     ) { padding ->
         when (selected) {
-            RootTab.HOME -> HomeScreen(profile, progress, goals, homework, syncError, padding) { selected = RootTab.STUDY }
-            RootTab.STUDY -> StudyScreen(repository, goals, homework, padding)
-            RootTab.AI -> AiScreen(profile, padding)
-            RootTab.PROGRESS -> ProgressScreen(progress, padding)
-            RootTab.PROFILE -> ProfileScreen(repository, profile, padding)
+            RootTab.HOME -> HomeTab(repository, profile, progress, goals, homework, padding, { selected = RootTab.STUDY })
+            RootTab.STUDY -> StudyTab(repository, progress, goals, homework, padding, { selected = RootTab.AI })
+            RootTab.AI -> AiTab(profile, progress, padding)
+            RootTab.QUIZ -> QuizTab(repository, padding)
+            RootTab.STATS -> StatsTab(progress, padding)
+            RootTab.ME -> MeTab(repository, profile, progress, padding, { selected = RootTab.AI })
+            RootTab.ALERTS -> AlertsTab(progress, syncError, padding)
         }
     }
 }
 
 @Composable
-private fun HomeScreen(
+private fun HtmlHeader(profile: UserProfile, progress: Progress) {
+    Row(
+        Modifier.fillMaxWidth().background(HeaderBg).statusBarsPadding().border(0.5.dp, Accent.copy(alpha = 0.10f)).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("📚", fontSize = 22.sp)
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text("EVOLUTION", color = Accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                Text("LEARNING", color = Muted, fontSize = 8.sp, letterSpacing = 2.sp)
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            MiniStat("🔥 ${progress.streak}", Good)
+            MiniStat("${progress.xp} XP", Gold)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(profile.name.ifBlank { "Student" }, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text(profile.grade, fontSize = 8.sp, color = Muted)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniStat(text: String, accent: Color) {
+    Box(Modifier.clip(RoundedCornerShape(7.dp)).background(accent.copy(alpha = 0.10f)).padding(horizontal = 7.dp, vertical = 3.dp)) {
+        Text(text, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun HtmlBottomBar(selected: RootTab, hasAlert: Boolean, onSelect: (RootTab) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(Color(0xF7050F1A)).navigationBarsPadding().border(0.5.dp, Accent.copy(alpha = 0.10f)).padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        RootTab.entries.forEach { tab ->
+            Column(
+                Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { onSelect(tab) }.background(if (selected == tab) Accent.copy(alpha = 0.07f) else Color.Transparent).padding(vertical = 3.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box {
+                    Text(tab.icon, fontSize = 16.sp)
+                    if (tab == RootTab.ALERTS && hasAlert) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(Orange).align(Alignment.TopEnd))
+                    }
+                }
+                Text(tab.label, fontSize = 8.sp, color = if (selected == tab) Accent else Color.White.copy(alpha = 0.28f), fontWeight = if (selected == tab) FontWeight.Bold else FontWeight.Normal)
+                Box(Modifier.size(4.dp).clip(CircleShape).background(if (selected == tab) Accent else Color.Transparent))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeTab(
+    repository: FirebaseRepository,
     profile: UserProfile,
     progress: Progress,
     goals: List<StudyGoal>,
     homework: List<HomeworkItem>,
-    syncError: String?,
     padding: PaddingValues,
     openStudy: () -> Unit
 ) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item { Header(profile) }
+    var mood by remember { mutableStateOf<String?>(null) }
+    var checkInMessage by remember { mutableStateOf<String?>(null) }
+    var newGoal by remember { mutableStateOf("") }
+    var hwSubject by remember { mutableStateOf("") }
+    var hwTask by remember { mutableStateOf("") }
+    val checkedInToday = progress.lastCheckInDate == LocalDate.now().toString()
+    val goalTotal = goals.size.coerceAtLeast(1)
+    val goalProgress = goals.count { it.completed }.toFloat() / goalTotal.toFloat()
+
+    HtmlList(padding) {
+        item { SectionHeading("🏠 Home", "Learn, Track, Grow") }
         item {
-            GlassCard {
-                Text("YOUR LEARNING COMMAND CENTER", color = Cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(7.dp))
-                Text("Learn smarter. Track what you actually do.", fontSize = 25.sp, lineHeight = 29.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(8.dp))
-                Text("AI tools are now wired through Firebase AI Logic, while progress still records only completed activity.", color = Muted, fontSize = 13.sp)
-                Spacer(Modifier.height(14.dp))
-                Button(onClick = openStudy, colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Color(0xFF001018))) {
-                    Text("Start studying", fontWeight = FontWeight.Bold)
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Accent.copy(alpha = 0.08f)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, Accent.copy(alpha = 0.20f), RoundedCornerShape(16.dp))
+            ) {
+                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text("DAILY CHECK-IN", color = Accent, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                        Text(if (checkedInToday) "Today's +100 XP has been claimed" else "Claim your +100 XP bonus", color = Muted, fontSize = 10.sp)
+                    }
+                    Button(
+                        onClick = {
+                            repository.recordDailyCheckIn { result ->
+                                checkInMessage = when {
+                                    result.isFailure -> result.exceptionOrNull()?.localizedMessage
+                                    result.getOrNull() == true -> "+100 XP claimed"
+                                    else -> "Already claimed today"
+                                }
+                            }
+                        },
+                        enabled = !checkedInToday,
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg),
+                        shape = RoundedCornerShape(10.dp)
+                    ) { Text(if (checkedInToday) "Claimed ✓" else "Claim", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                 }
             }
         }
-        if (syncError != null) item { NoticeCard("Sync issue", syncError, Warn) }
+        if (checkInMessage != null) item { SmallNotice(checkInMessage!!, Good) }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Study time", formatStudyTime(progress.studySeconds), "completed focus", Cyan, Modifier.weight(1f))
-                MetricCard("Quiz accuracy", progress.accuracyPercent?.let { "$it%" } ?: "—", "real attempts", Purple, Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallFeature("💧", "Wellness Tip", "Take a short water and stretch break.", Purple, Modifier.weight(1f))
+                SmallFeature("⚡", "Daily Challenge", "Complete one real study goal today.", Gold, Modifier.weight(1f))
             }
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Focus", progress.focusSessionsCompleted.toString(), "sessions", Good, Modifier.weight(1f))
-                MetricCard("Flashcards", progress.flashcardsReviewed.toString(), "reviewed", Color(0xFFFBBF24), Modifier.weight(1f))
+            HtmlCard {
+                Text("💭 How are you feeling today?", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(9.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("😴" to "Tired", "😟" to "Stressed", "😐" to "Okay", "😊" to "Good", "🚀" to "Focused").forEach { (emoji, label) ->
+                        MoodButton(emoji, label, mood == label, Modifier.weight(1f)) {
+                            mood = label
+                            repository.setMood(label)
+                        }
+                    }
+                }
             }
         }
-        item { SectionTitle("Today", "Your active work") }
         item {
-            GlassCard {
-                Text("🎯 Study goals", fontWeight = FontWeight.Bold)
-                Text("${goals.count { it.completed }} completed · ${goals.count { !it.completed }} active", color = Muted)
+            HtmlCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("📈 Daily Progress", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${(goalProgress * 100).toInt()}%", color = Accent, fontSize = 11.sp)
+                }
                 Spacer(Modifier.height(8.dp))
-                goals.filter { !it.completed }.take(3).forEach { Text("• ${it.title}", modifier = Modifier.padding(vertical = 3.dp)) }
-                if (goals.none { !it.completed }) Text("No active goals yet. Add one in Study.", color = Muted)
+                LinearProgressIndicator(
+                    progress = { goalProgress },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(4.dp)),
+                    color = Accent,
+                    trackColor = Color.White.copy(alpha = 0.07f)
+                )
+                Text("Complete real goals to fill the bar", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 6.dp))
             }
         }
         item {
-            GlassCard {
-                Text("📝 Homework", fontWeight = FontWeight.Bold)
-                Text("${homework.count { it.completed }} completed · ${homework.count { !it.completed }} pending", color = Muted)
+            HtmlCard {
+                Text("🔒 Focus Lock Session", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Start a focused study timer and keep your study flow on task.", color = Faint, fontSize = 11.sp, modifier = Modifier.padding(vertical = 7.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("TikTok", "Instagram", "YouTube", "Games").forEach { RedBadge(it) }
+                }
+                Spacer(Modifier.height(9.dp))
+                PrimaryAction("Start Focus Lock", openStudy)
+            }
+        }
+        item {
+            HtmlCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("🎯 Study Goals", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${goals.count { it.completed }}/${goals.size} done", color = Accent, fontSize = 10.sp)
+                }
                 Spacer(Modifier.height(8.dp))
-                homework.filter { !it.completed }.take(3).forEach { Text("• ${it.subject}: ${it.title}", modifier = Modifier.padding(vertical = 3.dp)) }
-                if (homework.none { !it.completed }) Text("No pending homework yet.", color = Muted)
+                if (goals.isEmpty()) Text("No goals yet.", color = Muted, fontSize = 11.sp)
+                goals.take(5).forEach { goal ->
+                    ActionRow(goal.title, if (goal.completed) "Completed" else "Active", goal.completed) {
+                        repository.completeGoal(goal.id)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(value = newGoal, onValueChange = { newGoal = it }, modifier = Modifier.weight(1f), label = { Text("Add a new goal") }, singleLine = true)
+                    Spacer(Modifier.width(7.dp))
+                    Button(onClick = { repository.addGoal(newGoal) { if (it.isSuccess) newGoal = "" } }, enabled = newGoal.isNotBlank()) { Text("Add") }
+                }
+            }
+        }
+        item {
+            HtmlCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("📝 Homework Tracker", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text("${homework.count { !it.completed }} pending", color = Orange, fontSize = 10.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+                if (homework.isEmpty()) Text("No homework added yet.", color = Muted, fontSize = 11.sp)
+                homework.take(5).forEach { item ->
+                    ActionRow("${item.subject}: ${item.title}", if (item.completed) "Completed" else "Pending", item.completed) {
+                        repository.completeHomework(item.id)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(value = hwSubject, onValueChange = { hwSubject = it }, modifier = Modifier.weight(0.42f), label = { Text("Subject") }, singleLine = true)
+                    OutlinedTextField(value = hwTask, onValueChange = { hwTask = it }, modifier = Modifier.weight(1f), label = { Text("Assignment task") }, singleLine = true)
+                }
+                Spacer(Modifier.height(7.dp))
+                PrimaryAction("Add Homework") {
+                    repository.addHomework(hwSubject, hwTask) {
+                        if (it.isSuccess) { hwSubject = ""; hwTask = "" }
+                    }
+                }
+            }
+        }
+        item {
+            HtmlCard {
+                Text("📅 Upcoming Exams", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("No exam dates have been added yet. The old HTML sample dates are not used as real data.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Gold.copy(alpha = 0.05f)), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth().border(1.dp, Gold.copy(alpha = 0.13f), RoundedCornerShape(14.dp))) {
+                Column(Modifier.padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("“Education is the most powerful weapon which you can use to change the world.”", color = Color.White.copy(alpha = 0.72f), fontSize = 11.sp, textAlign = TextAlign.Center)
+                    Text("— Nelson Mandela", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 4.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StudyScreen(repository: FirebaseRepository, goals: List<StudyGoal>, homework: List<HomeworkItem>, padding: PaddingValues) {
+private fun StudyTab(
+    repository: FirebaseRepository,
+    progress: Progress,
+    goals: List<StudyGoal>,
+    homework: List<HomeworkItem>,
+    padding: PaddingValues,
+    openAi: () -> Unit
+) {
     var focusMinutes by remember { mutableIntStateOf(25) }
     var secondsLeft by remember { mutableIntStateOf(25 * 60) }
     var running by remember { mutableStateOf(false) }
-    var focusMessage by remember { mutableStateOf<String?>(null) }
-    var goalText by remember { mutableStateOf("") }
-    var hwSubject by remember { mutableStateOf("") }
-    var hwTitle by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(running, secondsLeft) {
         if (running && secondsLeft > 0) {
             delay(1000)
-            secondsLeft -= 1
+            secondsLeft--
         } else if (running && secondsLeft == 0) {
             running = false
             repository.recordCompletedFocusSession(focusMinutes * 60L) { result ->
-                focusMessage = if (result.isSuccess) "Focus session saved to your progress." else result.exceptionOrNull()?.localizedMessage
+                message = if (result.isSuccess) "Focus session saved to your real progress." else result.exceptionOrNull()?.localizedMessage
             }
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item { SimpleHeader("📖", "Study Hub", "Practice tools that update real progress") }
+    HtmlList(padding) {
+        item { SectionHeading("📖 Study Hub", "AI-enhanced learning tools") }
         item {
-            GlassCard {
-                Text("🔒 Focus session", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Only a fully completed timer is added to study time.", color = Muted, fontSize = 12.sp)
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    listOf(25, 45, 60).forEach { value ->
-                        SmallChip("$value min", focusMinutes == value) {
-                            if (!running) {
-                                focusMinutes = value
-                                secondsLeft = value * 60
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(14.dp))
-                Text(formatClock(secondsLeft), fontSize = 44.sp, fontWeight = FontWeight.Black, color = Cyan)
+            HtmlCard {
+                Text("🎓 Exam Prep Centre", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Get ready for finals with resources and strategy tools.", color = Faint, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = { running = !running }, colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Color(0xFF001018))) {
-                        Text(if (running) "Pause" else "Start")
-                    }
-                    OutlinedButton(onClick = { running = false; secondsLeft = focusMinutes * 60 }) { Text("Reset") }
+                    SecondaryAction("📄 Past Papers", Modifier.weight(1f)) { message = "Past paper library connection is ready for the next content-pack step." }
+                    SecondaryAction("💡 Strategy Tips", Modifier.weight(1f)) { message = "Use the AI Tutor for exam strategy tailored to your subject." }
                 }
-                if (focusMessage != null) Text(focusMessage!!, color = Good, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
-        item { QuizCard(repository) }
+        if (message != null) item { SmallNotice(message!!, Accent) }
         item { FlashcardCard(repository) }
+        item { FeatureActionCard("🧠", "AI Mind Map", "Turn a topic or your notes into a structured mind map.", "Open Mind Map", openAi) }
         item {
-            GlassCard {
-                Text("🎯 Goals", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = goalText, onValueChange = { goalText = it }, modifier = Modifier.fillMaxWidth(), label = { Text("New study goal") }, singleLine = true)
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = { repository.addGoal(goalText) { if (it.isSuccess) goalText = "" } }, enabled = goalText.isNotBlank()) { Text("Add goal") }
-                Spacer(Modifier.height(8.dp))
-                goals.take(6).forEach { goal ->
-                    ActionRow(goal.title, if (goal.completed) "Completed" else "Active", goal.completed, if (goal.completed) null else { { repository.completeGoal(goal.id) } })
-                }
-            }
-        }
-        item {
-            GlassCard {
-                Text("📝 Homework tracker", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = hwSubject, onValueChange = { hwSubject = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Subject") }, singleLine = true)
-                Spacer(Modifier.height(7.dp))
-                OutlinedTextField(value = hwTitle, onValueChange = { hwTitle = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Task") }, singleLine = true)
-                Spacer(Modifier.height(8.dp))
-                Button(onClick = {
-                    repository.addHomework(hwSubject, hwTitle) {
-                        if (it.isSuccess) {
-                            hwSubject = ""
-                            hwTitle = ""
+            HtmlCard {
+                Text("⏱️ Pomodoro / Focus Lock", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("A completed timer updates your real study time.", color = Faint, fontSize = 11.sp, modifier = Modifier.padding(vertical = 7.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf(25, 45, 60).forEach { value ->
+                        TinyChip("$value min", focusMinutes == value) {
+                            if (!running) { focusMinutes = value; secondsLeft = value * 60 }
                         }
                     }
-                }, enabled = hwSubject.isNotBlank() && hwTitle.isNotBlank()) { Text("Add homework") }
+                }
+                Text(formatClock(secondsLeft), color = Accent, fontSize = 38.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(vertical = 10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(onClick = { running = !running }, modifier = Modifier.weight(1f)) { Text(if (running) "Pause" else "Start") }
+                    OutlinedButton(onClick = { running = false; secondsLeft = focusMinutes * 60 }, modifier = Modifier.weight(1f)) { Text("Reset") }
+                }
+            }
+        }
+        item {
+            HtmlCard {
+                Text("🔎 Subject Explorer", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Choose a subject for summaries, key facts, and guided help.", color = Faint, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SecondaryAction("Mathematics", Modifier.weight(1f), openAi)
+                    SecondaryAction("Science", Modifier.weight(1f), openAi)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SecondaryAction("History", Modifier.weight(1f), openAi)
+                    SecondaryAction("English", Modifier.weight(1f), openAi)
+                }
+            }
+        }
+        item { FeatureActionCard("📅", "Personalised Study Planner", "AI builds a plan from your subjects, exam dates, weak areas, and available time.", "Create My Plan", openAi) }
+        item { FeatureActionCard("📝", "AI Quiz Generator from Notes", "Paste notes and generate a custom practice quiz.", "Generate Quiz from Notes", openAi) }
+        item { FeatureActionCard("👩🏽‍🏫", "Live AI Teacher", "Ask for step-by-step explanations, examples, and study help.", "Open Live AI Tutor", openAi) }
+        item { FeatureActionCard("📷", "Camera Homework Solver", "Use the Smart Scanner in AI Power Centre to extract a homework question and ask AI.", "Open Smart Scanner", openAi) }
+        item { FeatureActionCard("🧠", "AI Weakness Detector", "Analyze real learning totals and identify where more practice is needed.", "Analyze Weaknesses", openAi) }
+        item {
+            HtmlCard {
+                Text("🧩 Memory Training Game", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Flashcards are the active memory-training tool in this build.", color = Faint, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp))
+                Text("Reviewed: ${progress.flashcardsReviewed}", color = Accent, fontWeight = FontWeight.Bold)
+            }
+        }
+        item {
+            HtmlCard {
+                Text("🏆 Class Leaderboard", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("No fake classmates are shown. A real class/school leaderboard needs an approved shared Firestore collection and privacy rules.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
+            }
+        }
+        item {
+            HtmlCard {
+                Text("🧠 AI Mistake Bank", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Red)
+                Text("${(progress.questionsAnswered - progress.correctAnswers).coerceAtLeast(0)} wrong answers recorded in aggregate. Detailed per-question history is not fabricated.", color = Faint, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
+            }
+        }
+        item {
+            HtmlCard {
+                Text("📝 My Notes", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Use the AI Note Summarizer for notes now; persistent note storage can be added without changing this design.", color = Faint, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
+            }
+        }
+        item {
+            HtmlCard {
+                Text("Current workload", color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text("${goals.count { !it.completed }} active goals · ${homework.count { !it.completed }} pending homework", color = Muted, fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AiTab(profile: UserProfile, progress: Progress, padding: PaddingValues) {
+    var selectedTool by remember { mutableStateOf<AiFeature?>(null) }
+    var showVoice by remember { mutableStateOf(false) }
+    var showScanner by remember { mutableStateOf(false) }
+
+    HtmlList(padding) {
+        item { SectionHeading("🤖 AI Power Centre", "8 AI tools powered securely by Gemini") }
+        item { AiCatalogCard("📖", "Smart Dictionary AI", "Reference", "Search a word for meaning, synonyms, and examples.") { selectedTool = AiFeature.DICTIONARY } }
+        item { AiCatalogCard("🔊", "AI Voice Reader", "Accessibility", "Listen to notes, summaries, or any text using Android text-to-speech.") { showVoice = true } }
+        item { AiCatalogCard("📸", "AI Smart Scanner", "PRO", "Use the camera, extract text with OCR, then send the text to AI.") { showScanner = true } }
+        item { AiCatalogCard("🤖", "AI Tutor", "Tutor", "Ask school questions and get step-by-step explanations.") { selectedTool = AiFeature.TUTOR } }
+        item { AiCatalogCard("🧾", "AI Note Summarizer", "Study", "Turn long notes into a focused study summary.") { selectedTool = AiFeature.SUMMARIZE } }
+        item { AiCatalogCard("✏️", "AI Quiz Generator", "Practice", "Generate a custom 5-question quiz from a topic or notes.") { selectedTool = AiFeature.QUIZ } }
+        item { AiCatalogCard("📅", "AI Study Planner", "Plan", "Build a realistic schedule from subjects, dates, and available time.") { selectedTool = AiFeature.STUDY_PLAN } }
+        item { AiCatalogCard("🧠", "AI Weakness Detector", "Analytics", "Analyze real progress without inventing missing data.") { selectedTool = AiFeature.WEAKNESS } }
+        item { SmallNotice("The provider secret is not stored in the APK. AI requests use Firebase AI Logic; production protection uses App Check.", Good) }
+    }
+
+    selectedTool?.let { feature ->
+        val prefill = if (feature == AiFeature.WEAKNESS) {
+            "Study time: ${formatStudyTime(progress.studySeconds)}; quizzes: ${progress.quizzesCompleted}; answers: ${progress.questionsAnswered}; correct: ${progress.correctAnswers}; flashcards: ${progress.flashcardsReviewed}; focus sessions: ${progress.focusSessionsCompleted}; goals completed: ${progress.goalsCompleted}; homework completed: ${progress.homeworkCompleted}."
+        } else ""
+        AiToolDialog(feature, profile.grade, prefill) { selectedTool = null }
+    }
+    if (showVoice) VoiceReaderDialog { showVoice = false }
+    if (showScanner) ScannerDialog(profile.grade) { showScanner = false }
+}
+
+@Composable
+private fun AiToolDialog(feature: AiFeature, grade: String, prefill: String, onClose: () -> Unit) {
+    val ai = remember { AiRepository() }
+    val scope = rememberCoroutineScope()
+    var input by remember(feature) { mutableStateOf(prefill) }
+    var output by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(620.dp).border(1.dp, Accent.copy(alpha = 0.25f), RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF08131F)),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            Column(Modifier.fillMaxSize().padding(18.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text(feature.label, color = Accent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text(feature.hint, color = Muted, fontSize = 10.sp)
+                    }
+                    TextButton(onClick = onClose) { Text("✕") }
+                }
+                OutlinedTextField(value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth().height(150.dp), label = { Text(feature.hint) })
                 Spacer(Modifier.height(8.dp))
-                homework.take(6).forEach { item ->
-                    ActionRow("${item.subject}: ${item.title}", if (item.completed) "Completed" else "Pending", item.completed, if (item.completed) null else { { repository.completeHomework(item.id) } })
+                PrimaryAction(if (busy) "Thinking…" else "Run ${feature.label}") {
+                    if (busy || input.isBlank()) return@PrimaryAction
+                    busy = true
+                    error = null
+                    output = null
+                    scope.launch {
+                        val result = ai.runFeature(feature, grade, input)
+                        busy = false
+                        result.onSuccess { output = it }.onFailure { error = friendlyAiError(it) }
+                    }
+                }
+                if (busy) CircularProgressIndicator(color = Accent, modifier = Modifier.padding(top = 10.dp).size(20.dp))
+                if (error != null) Text(error!!, color = Orange, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
+                if (output != null) {
+                    Spacer(Modifier.height(10.dp))
+                    Text("AI RESPONSE", color = Purple, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(top = 7.dp)) {
+                        item { Text(output!!, color = Color.White.copy(alpha = 0.88f), fontSize = 12.sp, lineHeight = 18.sp) }
+                    }
                 }
             }
         }
@@ -521,103 +736,125 @@ private fun StudyScreen(repository: FirebaseRepository, goals: List<StudyGoal>, 
 }
 
 @Composable
-private fun AiScreen(profile: UserProfile, padding: PaddingValues) {
+private fun VoiceReaderDialog(onClose: () -> Unit) {
+    val context = LocalContext.current
+    var text by remember { mutableStateOf("") }
+    var speed by remember { mutableStateOf(1.0f) }
+    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+
+    DisposableEffect(Unit) {
+        val engine = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                engineLanguage@ runCatching { engine.language = Locale.getDefault() }
+            }
+        }
+        tts = engine
+        onDispose { engine.stop(); engine.shutdown() }
+    }
+
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).border(1.dp, Accent.copy(alpha = 0.25f), RoundedCornerShape(24.dp)), colors = CardDefaults.cardColors(containerColor = Color(0xFF08131F)), shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.padding(18.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text("AI Voice Reader", color = Accent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text("Convert text to natural device speech.", color = Muted, fontSize = 10.sp)
+                    }
+                    TextButton(onClick = onClose) { Text("✕") }
+                }
+                OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth().height(200.dp), label = { Text("Paste text here to read aloud") })
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimaryAction("🔊 Read Aloud", Modifier.weight(2f)) {
+                        tts?.setSpeechRate(speed)
+                        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "evolution-reader")
+                    }
+                    SecondaryAction("⏹ Stop", Modifier.weight(1f)) { tts?.stop() }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("VOICE SPEED: ${"%.1f".format(speed)}x", color = Muted, fontSize = 10.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(0.7f, 1.0f, 1.3f, 1.6f).forEach { value ->
+                        TinyChip("${value}x", speed == value) { speed = value }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScannerDialog(grade: String, onClose: () -> Unit) {
     val ai = remember { AiRepository() }
     val scope = rememberCoroutineScope()
-    var feature by remember { mutableStateOf(AiFeature.TUTOR) }
-    var input by remember { mutableStateOf("") }
-    var output by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    var extracted by remember { mutableStateOf("") }
+    var aiAnswer by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item { SimpleHeader("✦", "Evolution AI", "Gemini through Firebase AI Logic") }
-        item {
-            NoticeCard(
-                "Private AI connection",
-                "The Gemini provider credential is not embedded in this APK. Requests go through Firebase AI Logic so the provider credential stays server-side.",
-                Good
-            )
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) {
+            busy = true
+            error = null
+            recognizer.process(InputImage.fromBitmap(bitmap, 0))
+                .addOnSuccessListener { result -> extracted = result.text; busy = false }
+                .addOnFailureListener { throwable -> error = throwable.localizedMessage ?: "OCR failed"; busy = false }
         }
-        item {
-            GlassCard {
-                Text("Choose an AI tool", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(10.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AiFeature.entries.forEach { option ->
-                        SmallChip(option.label, feature == option) {
-                            feature = option
-                            output = null
-                            error = null
-                        }
+    }
+
+    DisposableEffect(Unit) { onDispose { recognizer.close() } }
+
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(650.dp).border(1.dp, Accent.copy(alpha = 0.25f), RoundedCornerShape(24.dp)), colors = CardDefaults.cardColors(containerColor = Color(0xFF08131F)), shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.padding(18.dp).fillMaxSize()) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text("Smart Scanner", color = Accent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                        Text("OCR-VISION · Extract text from a camera photo", color = Muted, fontSize = 10.sp)
                     }
+                    TextButton(onClick = onClose) { Text("✕") }
                 }
-                Spacer(Modifier.height(12.dp))
-                Text("For ${profile.grade}", color = Cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.fillMaxWidth().height(180.dp),
-                    label = { Text(feature.hint) }
-                )
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
+                Box(Modifier.fillMaxWidth().height(180.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black).border(1.dp, Accent.copy(alpha = 0.30f), RoundedCornerShape(16.dp)), contentAlignment = Alignment.Center) {
+                    Text(if (extracted.isBlank()) "📸\nCamera OCR" else "TEXT EXTRACTED ✓", color = if (extracted.isBlank()) Muted else Good, textAlign = TextAlign.Center)
+                }
+                Spacer(Modifier.height(8.dp))
+                PrimaryAction("📸 Open Camera") { launcher.launch(null) }
+                if (busy) CircularProgressIndicator(color = Accent, modifier = Modifier.padding(top = 8.dp).size(20.dp))
+                if (error != null) Text(error!!, color = Orange, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+                if (extracted.isNotBlank()) {
+                    Text("EXTRACTED TEXT", color = Accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
+                    LazyColumn(Modifier.fillMaxWidth().height(120.dp).padding(top = 5.dp)) { item { Text(extracted, fontSize = 11.sp) } }
+                    Spacer(Modifier.height(7.dp))
+                    PrimaryAction("Ask AI") {
+                        if (busy) return@PrimaryAction
                         busy = true
-                        error = null
-                        output = null
                         scope.launch {
-                            val result = ai.runFeature(feature, profile.grade, input)
+                            val result = ai.runFeature(AiFeature.TUTOR, grade, extracted)
                             busy = false
-                            result.onSuccess { output = it }
-                                .onFailure { error = friendlyAiError(it) }
+                            result.onSuccess { aiAnswer = it }.onFailure { error = friendlyAiError(it) }
                         }
-                    },
-                    enabled = input.isNotBlank() && !busy,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Purple, contentColor = Color(0xFF12051D))
-                ) {
-                    if (busy) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Thinking…")
-                    } else {
-                        Text("Run ${feature.label}", fontWeight = FontWeight.Bold)
                     }
                 }
-            }
-        }
-        if (error != null) item { NoticeCard("AI connection issue", error!!, Warn) }
-        if (output != null) {
-            item {
-                GlassCard {
-                    Text("AI response", color = Purple, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(8.dp))
-                    Text(output!!, lineHeight = 21.sp)
-                    Spacer(Modifier.height(8.dp))
-                    TextButton(onClick = { output = null; input = "" }) { Text("Clear") }
+                if (aiAnswer != null) {
+                    Text("AI RESPONSE", color = Purple, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
+                    LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(top = 5.dp)) { item { Text(aiAnswer!!, fontSize = 11.sp, lineHeight = 17.sp) } }
                 }
             }
         }
     }
 }
 
-private fun friendlyAiError(error: Throwable): String {
-    val message = error.localizedMessage.orEmpty()
-    return when {
-        message.contains("permission", ignoreCase = true) || message.contains("403") ->
-            "Firebase AI Logic is not enabled for this app yet, or App Check is blocking this build. Finish the Firebase AI Logic setup for the Evolution Learning project and try again."
-        message.contains("network", ignoreCase = true) || message.contains("unavailable", ignoreCase = true) ->
-            "The AI service could not be reached. Check the internet connection and try again."
-        else -> message.ifBlank { "The AI request failed. Please try again." }
+@Composable
+private fun QuizTab(repository: FirebaseRepository, padding: PaddingValues) {
+    HtmlList(padding) {
+        item { SectionHeading("✏️ Quiz", "Practice, check, improve") }
+        item { QuizCard(repository) }
+        item { SmallNotice("Your score is saved only after the quiz is completed. No pre-filled quiz progress is shown.", Good) }
     }
 }
 
-private data class QuizQuestion(val q: String, val options: List<String>, val correct: Int)
+private data class QuizQuestion(val question: String, val options: List<String>, val correct: Int)
 
 @Composable
 private fun QuizCard(repository: FirebaseRepository) {
@@ -630,41 +867,144 @@ private fun QuizCard(repository: FirebaseRepository) {
     }
     var index by remember { mutableIntStateOf(0) }
     var score by remember { mutableIntStateOf(0) }
-    var selected by remember { mutableStateOf<Int?>(null) }
+    var choice by remember { mutableStateOf<Int?>(null) }
     var finished by remember { mutableStateOf(false) }
     var saved by remember { mutableStateOf(false) }
 
-    GlassCard {
-        Text("✏️ Quick quiz", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Text("Your score is recorded only when the quiz is completed.", color = Muted, fontSize = 12.sp)
-        Spacer(Modifier.height(10.dp))
+    HtmlCard {
+        Text("Quick Quiz", color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         if (!finished) {
-            val question = questions[index]
-            Text("Question ${index + 1}/${questions.size}", color = Cyan, fontSize = 11.sp)
-            Text(question.q, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
-            question.options.forEachIndexed { optionIndex, label ->
-                ChoiceRow(label, selected == optionIndex) { selected = optionIndex }
-            }
+            val q = questions[index]
+            Text("Question ${index + 1}/${questions.size}", color = Muted, fontSize = 9.sp, modifier = Modifier.padding(top = 8.dp))
+            Text(q.question, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
+            q.options.forEachIndexed { optionIndex, label -> ChoiceRow(label, choice == optionIndex) { choice = optionIndex } }
             Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = {
-                    val chosen = selected ?: return@Button
-                    val finalScore = score + if (chosen == question.correct) 1 else 0
-                    score = finalScore
-                    if (index == questions.lastIndex) {
-                        finished = true
-                        repository.recordQuizResult(finalScore, questions.size) { saved = it.isSuccess }
-                    } else {
-                        index += 1
-                        selected = null
-                    }
-                },
-                enabled = selected != null
-            ) { Text(if (index == questions.lastIndex) "Finish quiz" else "Next") }
+            PrimaryAction(if (index == questions.lastIndex) "Finish Quiz" else "Next") {
+                val chosen = choice ?: return@PrimaryAction
+                val nextScore = score + if (chosen == q.correct) 1 else 0
+                score = nextScore
+                if (index == questions.lastIndex) {
+                    finished = true
+                    repository.recordQuizResult(nextScore, questions.size) { saved = it.isSuccess }
+                } else {
+                    index++
+                    choice = null
+                }
+            }
         } else {
-            Text("Score: $score / ${questions.size}", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Cyan)
-            Text(if (saved) "Saved to Firebase progress." else "Saving result…", color = if (saved) Good else Muted)
-            TextButton(onClick = { index = 0; score = 0; selected = null; finished = false; saved = false }) { Text("Try again") }
+            Text("$score / ${questions.size}", color = Accent, fontSize = 28.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 12.dp))
+            Text(if (saved) "Saved to Firebase progress." else "Saving result…", color = if (saved) Good else Muted, fontSize = 10.sp)
+            TextButton(onClick = { index = 0; score = 0; choice = null; finished = false; saved = false }) { Text("Try Again") }
+        }
+    }
+}
+
+@Composable
+private fun StatsTab(progress: Progress, padding: PaddingValues) {
+    HtmlList(padding) {
+        item { SectionHeading("📊 Progress Dashboard", "Your full learning analytics") }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                StatTile("⏱️", formatStudyTime(progress.studySeconds), "Study Hrs", Accent, Modifier.weight(1f))
+                StatTile("✏️", progress.quizzesCompleted.toString(), "Quizzes", Accent, Modifier.weight(1f))
+                StatTile("⚡", progress.flashcardsReviewed.toString(), "Flashcards", Purple, Modifier.weight(1f))
+            }
+        }
+        item {
+            HtmlCard {
+                Text("Learning Analytics", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                AnalyticsRow("Quiz accuracy", progress.accuracyPercent?.let { "$it%" } ?: "—", Accent)
+                AnalyticsRow("Focus sessions", progress.focusSessionsCompleted.toString(), Good)
+                AnalyticsRow("Goals completed", progress.goalsCompleted.toString(), Blue)
+                AnalyticsRow("Homework completed", progress.homeworkCompleted.toString(), Purple)
+                AnalyticsRow("XP", progress.xp.toString(), Gold)
+            }
+        }
+        item {
+            HtmlCard {
+                Text("⏱️ App Usage Tracker", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Screen-time analytics are not fabricated. Android usage access can be added later with explicit user permission.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MeTab(repository: FirebaseRepository, profile: UserProfile, progress: Progress, padding: PaddingValues, openAi: () -> Unit) {
+    var resetMessage by remember { mutableStateOf<String?>(null) }
+    val levelProgress = progress.xpIntoLevel.toFloat() / 1000f
+    val earnedBadges = listOf(
+        progress.focusSessionsCompleted >= 1,
+        progress.quizzesCompleted >= 1,
+        progress.flashcardsReviewed >= 10
+    ).count { it }
+
+    HtmlList(padding) {
+        item { SectionHeading("👤 My Profile", "") }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Accent.copy(alpha = 0.05f)), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth().border(1.dp, Accent.copy(alpha = 0.15f), RoundedCornerShape(20.dp))) {
+                Column(Modifier.padding(20.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("👤", fontSize = 48.sp)
+                    Text(profile.name.ifBlank { "New Student" }, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(profile.grade, color = Accent, fontSize = 11.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Box(Modifier.clip(RoundedCornerShape(6.dp)).background(Brush.linearGradient(listOf(Gold, Orange))).padding(horizontal = 10.dp, vertical = 3.dp)) {
+                            Text("LEVEL ${progress.level}", color = Bg, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+                        Text("${progress.xpIntoLevel} / 1000 XP", color = Muted, fontSize = 10.sp)
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    LinearProgressIndicator(progress = { levelProgress }, modifier = Modifier.fillMaxWidth().height(7.dp).clip(RoundedCornerShape(4.dp)), color = Gold, trackColor = Color.White.copy(alpha = 0.05f))
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        ProfileMini("🔥${progress.streak}", "Streak")
+                        ProfileMini(progress.xp.toString(), "Points")
+                        ProfileMini("🎖️$earnedBadges", "Badges")
+                        ProfileMini("L${progress.level}", "Level")
+                    }
+                }
+            }
+        }
+        item { FeatureActionCard("🤖", "AI Study Coach", "Get personalized study tips and motivation from your AI coach.", "Open Study Coach", openAi) }
+        item {
+            HtmlCard {
+                Text("⚙️ App Settings", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.padding(vertical = 8.dp)) {
+                    Text("Your Grade", color = Muted, fontSize = 11.sp)
+                    Text(profile.grade, fontSize = 11.sp)
+                }
+                OutlinedButton(onClick = {
+                    repository.sendPasswordReset(profile.email) { result ->
+                        resetMessage = if (result.isSuccess) "Password reset email sent." else result.exceptionOrNull()?.localizedMessage
+                    }
+                }, modifier = Modifier.fillMaxWidth()) { Text("Send Password Reset") }
+                Spacer(Modifier.height(7.dp))
+                Button(onClick = repository::signOut, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))) { Text("Sign Out") }
+                if (resetMessage != null) Text(resetMessage!!, color = Good, fontSize = 10.sp, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
+        item { SmallNotice("Firebase Auth + Cloud Firestore + secure Firebase AI Logic are active in the native build. Release App Check uses Play Integrity after the signing fingerprint is registered.", Accent) }
+    }
+}
+
+@Composable
+private fun AlertsTab(progress: Progress, syncError: String?, padding: PaddingValues) {
+    HtmlList(padding) {
+        item { SectionHeading("🔔 Alerts", "Notifications and sync status") }
+        if (syncError != null) item { SmallNotice("Sync issue: $syncError", Orange) }
+        if (syncError == null) item { SmallNotice("Firebase sync is connected.", Good) }
+        item {
+            HtmlCard {
+                Text("Daily Check-in", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (progress.lastCheckInDate == LocalDate.now().toString()) "Today's reward has been claimed." else "Today's reward is still available on Home.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            }
+        }
+        item {
+            HtmlCard {
+                Text("No fake alerts", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("The old HTML sample notification count is not carried over. This tab shows only real app state.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+            }
         }
     }
 }
@@ -673,8 +1013,8 @@ private fun QuizCard(repository: FirebaseRepository) {
 private fun FlashcardCard(repository: FirebaseRepository) {
     val cards = remember {
         listOf(
+            "What is 3x - 9 = 0?" to "x = 3",
             "What is the formula for force?" to "F = ma",
-            "What is the capital of Limpopo?" to "Polokwane",
             "What is 12 × 8?" to "96"
         )
     }
@@ -682,206 +1022,205 @@ private fun FlashcardCard(repository: FirebaseRepository) {
     var revealed by remember { mutableStateOf(false) }
     var counted by remember { mutableStateOf(setOf<Int>()) }
 
-    GlassCard {
-        Text("⚡ Smart flashcards", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Text("Card ${index + 1}/${cards.size}", color = Muted, fontSize = 11.sp)
-        Spacer(Modifier.height(10.dp))
+    HtmlCard {
+        Text("⚡ Smart Flashcards", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Cyan.copy(alpha = 0.07f)).clickable {
+            Modifier.fillMaxWidth().padding(top = 9.dp).clip(RoundedCornerShape(14.dp)).background(Accent.copy(alpha = 0.07f)).border(1.dp, Accent.copy(alpha = 0.16f), RoundedCornerShape(14.dp)).clickable {
                 revealed = !revealed
                 if (revealed && index !in counted) {
                     counted = counted + index
                     repository.recordFlashcardReviewed()
                 }
-            }.padding(22.dp),
+            }.padding(vertical = 24.dp, horizontal = 14.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(if (revealed) cards[index].second else cards[index].first, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(if (revealed) "Answer" else "Tap to reveal", color = Muted, fontSize = 9.sp)
+                Text(if (revealed) cards[index].second else cards[index].first, textAlign = TextAlign.Center, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+                Text("Box ${index + 1}/${cards.size}", color = Color.White.copy(alpha = 0.22f), fontSize = 9.sp, modifier = Modifier.padding(top = 6.dp))
+            }
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { index = (index - 1 + cards.size) % cards.size; revealed = false }) { Text("Previous") }
-            Button(onClick = { index = (index + 1) % cards.size; revealed = false }) { Text("Next") }
+            SecondaryAction("Previous", Modifier.weight(1f)) { index = (index - 1 + cards.size) % cards.size; revealed = false }
+            SecondaryAction("Next", Modifier.weight(1f)) { index = (index + 1) % cards.size; revealed = false }
         }
     }
 }
 
 @Composable
-private fun ProgressScreen(progress: Progress, padding: PaddingValues) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item { SimpleHeader("📊", "Real Progress", "Nothing is pre-filled or simulated") }
-        item {
-            GlassCard {
-                Text("Learning record", color = Cyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text(formatStudyTime(progress.studySeconds), fontSize = 38.sp, fontWeight = FontWeight.Black)
-                Text("Total completed focus time", color = Muted)
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Quizzes", progress.quizzesCompleted.toString(), "completed", Cyan, Modifier.weight(1f))
-                MetricCard("Accuracy", progress.accuracyPercent?.let { "$it%" } ?: "—", "${progress.questionsAnswered} answers", Purple, Modifier.weight(1f))
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Focus", progress.focusSessionsCompleted.toString(), "sessions", Good, Modifier.weight(1f))
-                MetricCard("Flashcards", progress.flashcardsReviewed.toString(), "reviewed", Color(0xFFFBBF24), Modifier.weight(1f))
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Goals", progress.goalsCompleted.toString(), "completed", Blue, Modifier.weight(1f))
-                MetricCard("Homework", progress.homeworkCompleted.toString(), "completed", Purple, Modifier.weight(1f))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProfileScreen(repository: FirebaseRepository, profile: UserProfile, padding: PaddingValues) {
-    var resetMessage by remember { mutableStateOf<String?>(null) }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(padding).statusBarsPadding(),
-        contentPadding = PaddingValues(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item { SimpleHeader("👤", "Profile", "Firebase account") }
-        item {
-            GlassCard {
-                Box(Modifier.size(62.dp).clip(CircleShape).background(Cyan.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-                    Text(profile.name.take(1).uppercase(), fontSize = 28.sp, fontWeight = FontWeight.Black, color = Cyan)
+private fun AiCatalogCard(icon: String, title: String, badge: String, body: String, onClick: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = Accent.copy(alpha = 0.05f)), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().border(1.dp, Accent.copy(alpha = 0.15f), RoundedCornerShape(16.dp))) {
+        Column(Modifier.padding(14.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(Accent.copy(alpha = 0.12f)).border(1.dp, Accent.copy(alpha = 0.22f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Text(icon, fontSize = 18.sp) }
+                    Spacer(Modifier.width(9.dp))
+                    Text(title, color = Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(12.dp))
-                Text(profile.name, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text(profile.grade, color = Cyan)
-                Text(profile.email, color = Muted)
+                Box(Modifier.clip(RoundedCornerShape(5.dp)).background(Accent.copy(alpha = 0.13f)).border(1.dp, Accent.copy(alpha = 0.26f), RoundedCornerShape(5.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                    Text(badge, color = Accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
             }
-        }
-        item {
-            GlassCard {
-                Text("Account security", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Passwords are handled by Firebase Authentication and the Gemini provider credential is not stored in the APK.", color = Muted, fontSize = 12.sp)
-                Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = {
-                    repository.sendPasswordReset(profile.email) {
-                        resetMessage = if (it.isSuccess) "Password reset email sent." else it.exceptionOrNull()?.localizedMessage
-                    }
-                }) { Text("Send password reset") }
-                if (resetMessage != null) Text(resetMessage!!, color = Good, modifier = Modifier.padding(top = 8.dp), fontSize = 12.sp)
-                Spacer(Modifier.height(10.dp))
-                Button(onClick = repository::signOut, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))) { Text("Sign out") }
-            }
+            Text(body, color = Color.White.copy(alpha = 0.55f), fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(vertical = 9.dp))
+            PrimaryAction("$icon Open →", onClick = onClick)
         }
     }
 }
 
 @Composable
-private fun Header(profile: UserProfile) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Column {
-            Text("EVOLUTION", color = Cyan, fontWeight = FontWeight.Black, fontSize = 19.sp)
-            Text("LEARNING v5.1 AI", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
-        }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(profile.name.ifBlank { "Student" }, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(profile.grade, color = Muted, fontSize = 10.sp)
-        }
+private fun FeatureActionCard(icon: String, title: String, body: String, action: String, onClick: () -> Unit) {
+    HtmlCard {
+        Text("$icon $title", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(body, color = Faint, fontSize = 11.sp, modifier = Modifier.padding(vertical = 8.dp))
+        PrimaryAction(action, onClick = onClick)
     }
 }
 
 @Composable
-private fun SimpleHeader(icon: String, title: String, subtitle: String) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(icon, fontSize = 26.sp)
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text(title, fontSize = 21.sp, fontWeight = FontWeight.Black, color = Cyan)
-            Text(subtitle, fontSize = 11.sp, color = Muted)
-        }
-    }
+private fun HtmlList(padding: PaddingValues, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(horizontal = 13.dp, vertical = 13.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        content = content
+    )
 }
 
 @Composable
-private fun SectionTitle(title: String, subtitle: String) {
+private fun SectionHeading(title: String, subtitle: String) {
     Column {
-        Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-        Text(subtitle, color = Muted, fontSize = 12.sp)
+        Text(title, color = Accent, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        if (subtitle.isNotBlank()) Text(subtitle, color = Color.White.copy(alpha = 0.38f), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
     }
 }
 
 @Composable
-private fun GlassCard(content: @Composable ColumnScope.() -> Unit) {
+private fun HtmlCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().border(1.dp, Cyan.copy(alpha = 0.10f), RoundedCornerShape(18.dp)),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBg)
-    ) {
-        Column(Modifier.padding(16.dp), content = content)
-    }
-}
-
-@Composable
-private fun MetricCard(label: String, value: String, sub: String, accent: Color, modifier: Modifier = Modifier) {
-    Card(
-        modifier = modifier.border(1.dp, accent.copy(alpha = 0.14f), RoundedCornerShape(16.dp)),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Accent.copy(alpha = 0.12f), RoundedCornerShape(16.dp)),
         colors = CardDefaults.cardColors(containerColor = CardBg),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(Modifier.padding(14.dp)) {
-            Text(label, color = Muted, fontSize = 11.sp)
-            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Black, color = accent)
-            Text(sub, color = Muted, fontSize = 9.sp)
+        Column(Modifier.padding(14.dp), content = content)
+    }
+}
+
+@Composable
+private fun SmallFeature(icon: String, title: String, body: String, accent: Color, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.border(1.dp, accent.copy(alpha = 0.16f), RoundedCornerShape(14.dp)), colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.06f)), shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.padding(11.dp)) {
+            Text(icon, fontSize = 18.sp)
+            Text(title, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(body, color = Color.White.copy(alpha = 0.68f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }
 
 @Composable
-private fun NoticeCard(title: String, body: String, accent: Color) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.07f)), shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.padding(14.dp)) {
-            Text(title, fontWeight = FontWeight.Bold, color = accent)
-            Text(body, color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
-        }
-    }
-}
-
-@Composable
-private fun SmallChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier.clip(RoundedCornerShape(10.dp))
-            .background(if (selected) Cyan else Color.White.copy(alpha = 0.04f))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 8.dp)
+private fun MoodButton(emoji: String, label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.clip(RoundedCornerShape(10.dp)).background(if (selected) Accent.copy(alpha = 0.13f) else Color.White.copy(alpha = 0.03f)).border(if (selected) 1.5.dp else 1.dp, if (selected) Accent else Color.White.copy(alpha = 0.07f), RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(vertical = 7.dp, horizontal = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(label, color = if (selected) Color(0xFF001018) else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text(emoji, fontSize = 16.sp)
+        Text(label, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun RedBadge(text: String) {
+    Box(Modifier.clip(RoundedCornerShape(7.dp)).background(Red.copy(alpha = 0.11f)).border(1.dp, Red.copy(alpha = 0.18f), RoundedCornerShape(7.dp)).padding(horizontal = 6.dp, vertical = 3.dp)) {
+        Text(text, color = Red, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun TinyChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(Modifier.clip(RoundedCornerShape(9.dp)).background(if (selected) Accent else Accent.copy(alpha = 0.07f)).border(1.dp, Accent.copy(alpha = 0.21f), RoundedCornerShape(9.dp)).clickable(onClick = onClick).padding(horizontal = 7.dp, vertical = 7.dp)) {
+        Text(label, color = if (selected) Bg else Accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun PrimaryAction(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(onClick = onClick, modifier = modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Bg), shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(vertical = 9.dp)) {
+        Text(text, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SecondaryAction(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    OutlinedButton(onClick = onClick, modifier = modifier, shape = RoundedCornerShape(12.dp), contentPadding = PaddingValues(vertical = 9.dp)) {
+        Text(text, color = Accent, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun ActionRow(title: String, subtitle: String, done: Boolean, onDone: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(9.dp)).background(Color.White.copy(alpha = 0.04f)).padding(horizontal = 9.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(9.dp).clip(CircleShape).background(if (done) Good else Orange))
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, fontSize = 8.sp, color = if (done) Good else Muted)
+        }
+        if (!done) TextButton(onClick = onDone, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)) { Text("Done", fontSize = 9.sp) }
     }
 }
 
 @Composable
 private fun ChoiceRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(10.dp))
-            .background(if (selected) Cyan.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.035f))
-            .border(1.dp, if (selected) Cyan else Color.White.copy(alpha = 0.05f), RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick).padding(11.dp)
-    ) { Text(label) }
+    Box(Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(10.dp)).background(if (selected) Accent.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.035f)).border(1.dp, if (selected) Accent else Color.White.copy(alpha = 0.05f), RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(10.dp)) {
+        Text(label, fontSize = 11.sp)
+    }
 }
 
 @Composable
-private fun ActionRow(title: String, subtitle: String, done: Boolean, action: (() -> Unit)?) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(10.dp).clip(CircleShape).background(if (done) Good else Cyan))
-        Spacer(Modifier.width(9.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, fontSize = 10.sp, color = if (done) Good else Muted)
+private fun SmallNotice(text: String, accent: Color) {
+    Card(colors = CardDefaults.cardColors(containerColor = accent.copy(alpha = 0.06f)), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().border(1.dp, accent.copy(alpha = 0.14f), RoundedCornerShape(12.dp))) {
+        Text(text, color = Color.White.copy(alpha = 0.68f), fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.padding(11.dp))
+    }
+}
+
+@Composable
+private fun StatTile(icon: String, value: String, label: String, accent: Color, modifier: Modifier = Modifier) {
+    Card(modifier = modifier.border(1.dp, Accent.copy(alpha = 0.12f), RoundedCornerShape(14.dp)), colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.padding(vertical = 10.dp, horizontal = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(icon, fontSize = 17.sp)
+            Text(value, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = Muted, fontSize = 8.sp)
         }
-        if (action != null) TextButton(onClick = action) { Text("Done") }
+    }
+}
+
+@Composable
+private fun AnalyticsRow(label: String, value: String, accent: Color) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = Muted, fontSize = 10.sp)
+        Text(value, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun ProfileMini(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, color = Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Muted, fontSize = 8.sp)
+    }
+}
+
+@Composable
+private fun HtmlField(value: String, onValueChange: (String) -> Unit, label: String) {
+    OutlinedTextField(value = value, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), label = { Text(label) }, singleLine = true)
+}
+
+private fun friendlyAiError(error: Throwable): String {
+    val message = error.localizedMessage.orEmpty()
+    return when {
+        message.contains("app check", ignoreCase = true) || message.contains("403") -> "AI is connected, but Firebase App Check is blocking this debug build until its debug token is registered."
+        message.contains("network", ignoreCase = true) || message.contains("unavailable", ignoreCase = true) -> "The AI service could not be reached. Check the internet connection and try again."
+        else -> message.ifBlank { "The AI request failed. Please try again." }
     }
 }
 
