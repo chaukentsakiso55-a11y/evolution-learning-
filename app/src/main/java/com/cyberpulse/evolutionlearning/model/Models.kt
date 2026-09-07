@@ -15,11 +15,20 @@ data class Progress(
     val flashcardsReviewed: Long = 0,
     val focusSessionsCompleted: Long = 0,
     val goalsCompleted: Long = 0,
-    val homeworkCompleted: Long = 0
+    val homeworkCompleted: Long = 0,
+    val xp: Long = 0,
+    val streak: Long = 0,
+    val lastCheckInDate: String = ""
 ) {
     val accuracyPercent: Int?
         get() = if (questionsAnswered <= 0L) null
         else ((correctAnswers.toDouble() / questionsAnswered.toDouble()) * 100).toInt()
+
+    val level: Long
+        get() = (xp / 1000L) + 1L
+
+    val xpIntoLevel: Long
+        get() = xp % 1000L
 }
 
 data class StudyGoal(
