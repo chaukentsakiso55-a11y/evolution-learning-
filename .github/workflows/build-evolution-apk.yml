@@ -1,0 +1,78 @@
+name: Build Evolution Learning 6 APK
+
+on:
+  push:
+    branches:
+      - chatgpt/android-v6-apk-build
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-37" "build-tools;36.0.0" "platform-tools"
+
+      - name: Set up Gradle 9.3.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Reconstruct Evolution Learning source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .chatgpt-build/evo.part00 \
+              .chatgpt-build/evo.part01 \
+              .chatgpt-build/evo.part02 \
+              .chatgpt-build/evo.part03 \
+              .chatgpt-build/evo.part04 > /tmp/evolution-dev2.b64
+          base64 --decode /tmp/evolution-dev2.b64 > /tmp/evolution-dev2.zip
+          unzip -t /tmp/evolution-dev2.zip
+          mkdir -p /tmp/evolution-src
+          unzip -q /tmp/evolution-dev2.zip -d /tmp/evolution-src
+          test -f /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/settings.gradle.kts
+
+      - name: Build debug APK
+        working-directory: /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
+        shell: bash
+        run: |
+          gradle --no-daemon --stacktrace :app:assembleDebug
+
+      - name: Verify APK
+        working-directory: /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
+        shell: bash
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
+          sha256sum app/build/outputs/apk/debug/app-debug.apk | tee app/build/outputs/apk/debug/app-debug.apk.sha256
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Evolution APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Evolution-Learning-6.0-debug-apk
+          path: |
+            /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/build/outputs/apk/debug/app-debug.apk
+            /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/build/outputs/apk/debug/app-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 7
