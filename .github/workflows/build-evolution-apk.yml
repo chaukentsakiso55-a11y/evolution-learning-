@@ -56,17 +56,11 @@ jobs:
           PROJECT=/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
           test -f "$PROJECT/settings.gradle.kts"
 
-          # API 36 is the stable target required by this app.
           sed -i 's/compileSdk = 37/compileSdk = 36/g' "$PROJECT/app/build.gradle.kts"
-
-          # AGP 9 has built-in Kotlin; the legacy kotlin-android plugin conflicts with it.
           sed -i '/id("org.jetbrains.kotlin.android") version/d' "$PROJECT/build.gradle.kts"
           sed -i '/id("org.jetbrains.kotlin.android")/d' "$PROJECT/app/build.gradle.kts"
-
-          # Use the current KSP plugin with AGP 9 / built-in Kotlin.
           sed -i 's/id("com.google.devtools.ksp") version "2.3.9"/id("com.google.devtools.ksp") version "2.3.10"/' "$PROJECT/build.gradle.kts"
 
-          # AGP 9 built-in Kotlin owns JVM compilation; remove the legacy Kotlin DSL block.
           python3 - <<'PY'
           from pathlib import Path
           p = Path('/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/build.gradle.kts')
@@ -75,18 +69,29 @@ jobs:
           p.write_text(s)
           PY
 
-          echo '--- root build.gradle.kts ---'
-          cat "$PROJECT/build.gradle.kts"
-          echo '--- app build.gradle.kts (head) ---'
-          sed -n '1,90p' "$PROJECT/app/build.gradle.kts"
-
       - name: Build debug APK
+        id: build
+        continue-on-error: true
         working-directory: /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
         shell: bash
         run: |
-          gradle --no-daemon --stacktrace :app:assembleDebug
+          set +e
+          gradle --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee /tmp/evolution-build.log
+          status=${PIPESTATUS[0]}
+          echo "$status" > /tmp/evolution-build.status
+          exit "$status"
+
+      - name: Upload compiler log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Evolution-Learning-6.0-build-log
+          path: /tmp/evolution-build.log
+          if-no-files-found: warn
+          retention-days: 2
 
       - name: Verify APK
+        if: steps.build.outcome == 'success'
         working-directory: /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
         shell: bash
         run: |
@@ -95,6 +100,7 @@ jobs:
           ls -lh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload Evolution APK
+        if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: Evolution-Learning-6.0-debug-apk
@@ -103,3 +109,11 @@ jobs:
             /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/build/outputs/apk/debug/app-debug.apk.sha256
           if-no-files-found: error
           retention-days: 7
+
+      - name: Fail workflow on compiler error
+        if: steps.build.outcome == 'failure'
+        shell: bash
+        run: |
+          echo 'Evolution Learning compilation failed. Last compiler lines:'
+          tail -n 220 /tmp/evolution-build.log || true
+          exit 1
