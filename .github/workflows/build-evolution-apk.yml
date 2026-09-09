@@ -56,10 +56,21 @@ jobs:
           PROJECT=/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
           test -f "$PROJECT/settings.gradle.kts"
 
+          # Keep targetSdk 36 while compiling against the API 36 platform available on CI.
           sed -i 's/compileSdk = 37/compileSdk = 36/g' "$PROJECT/app/build.gradle.kts"
+
+          # AGP 9 includes Kotlin support directly.
           sed -i '/id("org.jetbrains.kotlin.android") version/d' "$PROJECT/build.gradle.kts"
           sed -i '/id("org.jetbrains.kotlin.android")/d' "$PROJECT/app/build.gradle.kts"
           sed -i 's/id("com.google.devtools.ksp") version "2.3.9"/id("com.google.devtools.ksp") version "2.3.10"/' "$PROJECT/build.gradle.kts"
+
+          # Pin the Compose/navigation/lifecycle surface to stable API-36-compatible releases.
+          sed -i 's/compose-bom:2026.08.00/compose-bom:2025.06.00/' "$PROJECT/app/build.gradle.kts"
+          sed -i 's/core-ktx:1.17.0/core-ktx:1.16.0/' "$PROJECT/app/build.gradle.kts"
+          sed -i 's/activity-compose:1.13.0/activity-compose:1.10.1/' "$PROJECT/app/build.gradle.kts"
+          sed -i 's/navigation-compose:2.10.0/navigation-compose:2.9.0/' "$PROJECT/app/build.gradle.kts"
+          sed -i 's/lifecycle-runtime-compose:2.10.0/lifecycle-runtime-compose:2.9.1/' "$PROJECT/app/build.gradle.kts"
+          sed -i 's/lifecycle-viewmodel-compose:2.10.0/lifecycle-viewmodel-compose:2.9.1/' "$PROJECT/app/build.gradle.kts"
 
           python3 - <<'PY'
           from pathlib import Path
@@ -68,6 +79,9 @@ jobs:
           s = s.replace('''\n    kotlinOptions {\n        jvmTarget = "17"\n    }\n''', '\n')
           p.write_text(s)
           PY
+
+          echo 'Resolved Android dependencies:'
+          grep -E 'compose-bom|core-ktx|activity-compose|navigation-compose|lifecycle-' "$PROJECT/app/build.gradle.kts"
 
       - name: Build debug APK
         id: build
