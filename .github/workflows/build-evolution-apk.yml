@@ -74,10 +74,52 @@ jobs:
 
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/build.gradle.kts')
+          root = Path('/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2')
+
+          # AGP 9 built-in Kotlin owns JVM compilation.
+          p = root / 'app/build.gradle.kts'
           s = p.read_text()
           s = s.replace('''\n    kotlinOptions {\n        jvmTarget = "17"\n    }\n''', '\n')
           p.write_text(s)
+
+          # Fix FocusSessionEntity positional construction (id is the first field).
+          for rel, old, new in [
+              ('app/src/main/java/com/cyberpulse/evolutionlearning/focus/FocusService.kt',
+               'FocusSessionEntity(snapshot.startedAt, endAt, completed = true)',
+               'FocusSessionEntity(startedAt = snapshot.startedAt, endedAt = endAt, completed = true)'),
+              ('app/src/main/java/com/cyberpulse/evolutionlearning/focus/FocusSessionManager.kt',
+               'FocusSessionEntity(snapshot.startedAt, System.currentTimeMillis(), completed = false)',
+               'FocusSessionEntity(startedAt = snapshot.startedAt, endedAt = System.currentTimeMillis(), completed = false)'),
+          ]:
+              f = root / rel
+              text = f.read_text()
+              if old not in text:
+                  raise SystemExit(f'Expected source pattern not found in {rel}: {old}')
+              f.write_text(text.replace(old, new))
+
+          # Fix Material3 button parameter order and keep weight() inside ColumnScope receivers.
+          f = root / 'app/src/main/java/com/cyberpulse/evolutionlearning/ui/screens/FocusScreen.kt'
+          text = f.read_text()
+          text = text.replace(
+              'Button(Modifier.fillMaxWidth(), enabled = blockerEnabled && selected.isNotEmpty(), onClick = { scope.launch { FocusSessionManager.start(context, minutes, selected); onBack() } })',
+              'Button(onClick = { scope.launch { FocusSessionManager.start(context, minutes, selected); onBack() } }, modifier = Modifier.fillMaxWidth(), enabled = blockerEnabled && selected.isNotEmpty())'
+          )
+          text = text.replace(
+              'private fun ActiveFocusSession(snapshot: FocusSnapshot, attempts: List<com.cyberpulse.evolutionlearning.data.local.BlockedAttemptEntity>, hasPin: Boolean, onEnd: () -> Unit)',
+              'private fun ColumnScope.ActiveFocusSession(snapshot: FocusSnapshot, attempts: List<com.cyberpulse.evolutionlearning.data.local.BlockedAttemptEntity>, hasPin: Boolean, onEnd: () -> Unit)'
+          )
+          text = text.replace(
+              'OutlinedButton(onClick = onEnd, Modifier.fillMaxWidth())',
+              'OutlinedButton(onClick = onEnd, modifier = Modifier.fillMaxWidth())'
+          )
+          f.write_text(text)
+
+          f = root / 'app/src/main/java/com/cyberpulse/evolutionlearning/ui/screens/StudyScreen.kt'
+          text = f.read_text()
+          text = text.replace('@Composable private fun HomeworkSection(', '@Composable private fun ColumnScope.HomeworkSection(')
+          text = text.replace('@Composable private fun NotesSection(', '@Composable private fun ColumnScope.NotesSection(')
+          text = text.replace('@Composable private fun FlashcardSection(', '@Composable private fun ColumnScope.FlashcardSection(')
+          f.write_text(text)
           PY
 
           echo 'Resolved Android dependencies:'
