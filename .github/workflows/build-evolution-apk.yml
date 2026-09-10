@@ -1,4 +1,4 @@
-name: Build Evolution Learning 6 Gemini APK
+name: Build Evolution Learning 6.0.1 V5 Visual Match APK
 
 on:
   push:
@@ -31,31 +31,26 @@ jobs:
 
       - name: Install Android API 36
         shell: bash
-        run: |
-          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.3.1'
 
-      - name: Reconstruct and wire Evolution Gemini
+      - name: Reconstruct native app and apply V5 visual match
         shell: bash
         run: |
           set -euo pipefail
-          cat .chatgpt-build/evo.part00 \
-              .chatgpt-build/evo.part01 \
-              .chatgpt-build/evo.part02 \
-              .chatgpt-build/evo.part03 \
-              .chatgpt-build/evo.part04 > /tmp/evolution-dev2.b64
-          base64 --decode /tmp/evolution-dev2.b64 > /tmp/evolution-dev2.zip
-          unzip -t /tmp/evolution-dev2.zip
-          rm -rf /tmp/evolution-src
-          mkdir -p /tmp/evolution-src
-          unzip -q /tmp/evolution-dev2.zip -d /tmp/evolution-src
+          cat .chatgpt-build/evo.part00 .chatgpt-build/evo.part01 .chatgpt-build/evo.part02 .chatgpt-build/evo.part03 .chatgpt-build/evo.part04 > /tmp/evo.b64
+          base64 --decode /tmp/evo.b64 > /tmp/evo.zip
+          unzip -t /tmp/evo.zip
+          rm -rf /tmp/evolution-src && mkdir -p /tmp/evolution-src
+          unzip -q /tmp/evo.zip -d /tmp/evolution-src
           PROJECT=/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
           test -f "$PROJECT/settings.gradle.kts"
 
+          # Same Android/Gradle compatibility migration that produced the last successful APK.
           sed -i 's/compileSdk = 37/compileSdk = 36/g' "$PROJECT/app/build.gradle.kts"
           sed -i '/id("org.jetbrains.kotlin.android") version/d' "$PROJECT/build.gradle.kts"
           sed -i '/id("org.jetbrains.kotlin.android")/d' "$PROJECT/app/build.gradle.kts"
@@ -66,17 +61,14 @@ jobs:
           sed -i 's/navigation-compose:2.10.0/navigation-compose:2.9.0/' "$PROJECT/app/build.gradle.kts"
           sed -i 's/lifecycle-runtime-compose:2.10.0/lifecycle-runtime-compose:2.9.1/' "$PROJECT/app/build.gradle.kts"
           sed -i 's/lifecycle-viewmodel-compose:2.10.0/lifecycle-viewmodel-compose:2.9.1/' "$PROJECT/app/build.gradle.kts"
-          sed -i 's/versionCode = 62/versionCode = 63/' "$PROJECT/app/build.gradle.kts"
-          sed -i 's/versionName = "6.0.0-dev2"/versionName = "6.0.0-gemini-wired"/' "$PROJECT/app/build.gradle.kts"
 
           python3 - <<'PY'
           from pathlib import Path
           root = Path('/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2')
           p = root / 'app/build.gradle.kts'
-          s = p.read_text().replace('''\n    kotlinOptions {\n        jvmTarget = "17"\n    }\n''', '\n')
-          p.write_text(s)
+          p.write_text(p.read_text().replace('''\n    kotlinOptions {\n        jvmTarget = "17"\n    }\n''', '\n'))
 
-          fixes = [
+          replacements = [
               ('app/src/main/java/com/cyberpulse/evolutionlearning/focus/FocusService.kt',
                'FocusSessionEntity(snapshot.startedAt, endAt, completed = true)',
                'FocusSessionEntity(startedAt = snapshot.startedAt, endedAt = endAt, completed = true)'),
@@ -84,7 +76,7 @@ jobs:
                'FocusSessionEntity(snapshot.startedAt, System.currentTimeMillis(), completed = false)',
                'FocusSessionEntity(startedAt = snapshot.startedAt, endedAt = System.currentTimeMillis(), completed = false)'),
           ]
-          for rel, old, new in fixes:
+          for rel, old, new in replacements:
               f = root / rel
               text = f.read_text()
               if old in text:
@@ -94,12 +86,10 @@ jobs:
           text = f.read_text()
           text = text.replace(
               'Button(Modifier.fillMaxWidth(), enabled = blockerEnabled && selected.isNotEmpty(), onClick = { scope.launch { FocusSessionManager.start(context, minutes, selected); onBack() } })',
-              'Button(onClick = { scope.launch { FocusSessionManager.start(context, minutes, selected); onBack() } }, modifier = Modifier.fillMaxWidth(), enabled = blockerEnabled && selected.isNotEmpty())'
-          )
+              'Button(onClick = { scope.launch { FocusSessionManager.start(context, minutes, selected); onBack() } }, modifier = Modifier.fillMaxWidth(), enabled = blockerEnabled && selected.isNotEmpty())')
           text = text.replace(
               'private fun ActiveFocusSession(snapshot: FocusSnapshot, attempts: List<com.cyberpulse.evolutionlearning.data.local.BlockedAttemptEntity>, hasPin: Boolean, onEnd: () -> Unit)',
-              'private fun ColumnScope.ActiveFocusSession(snapshot: FocusSnapshot, attempts: List<com.cyberpulse.evolutionlearning.data.local.BlockedAttemptEntity>, hasPin: Boolean, onEnd: () -> Unit)'
-          )
+              'private fun ColumnScope.ActiveFocusSession(snapshot: FocusSnapshot, attempts: List<com.cyberpulse.evolutionlearning.data.local.BlockedAttemptEntity>, hasPin: Boolean, onEnd: () -> Unit)')
           text = text.replace('OutlinedButton(onClick = onEnd, Modifier.fillMaxWidth())', 'OutlinedButton(onClick = onEnd, modifier = Modifier.fillMaxWidth())')
           f.write_text(text)
 
@@ -111,6 +101,7 @@ jobs:
           f.write_text(text)
           PY
 
+          # Wire Evolution AI to the same generated Google key resource used by the earlier Embedded-Gemini build.
           cat > "$PROJECT/app/src/main/java/com/cyberpulse/evolutionlearning/ai/CloudLlmProvider.kt" <<'KOTLIN'
           package com.cyberpulse.evolutionlearning.ai
 
@@ -132,9 +123,7 @@ jobs:
               override fun isAvailable(): Boolean = apiKey.startsWith("AIza") && apiKey.length >= 30
 
               override suspend fun complete(request: LlmRequest): Result<String> = withContext(Dispatchers.IO) {
-                  if (!isAvailable()) {
-                      return@withContext Result.failure(IllegalStateException("Evolution Gemini key is unavailable"))
-                  }
+                  if (!isAvailable()) return@withContext Result.failure(IllegalStateException("Evolution Gemini key is unavailable"))
                   runCatching {
                       val endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
                       val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
@@ -145,11 +134,20 @@ jobs:
                           setRequestProperty("Content-Type", "application/json")
                           setRequestProperty("x-goog-api-key", apiKey)
                       }
-
+                      val prompt = buildString {
+                          appendLine("You are Evolution AI, a supportive school learning tutor.")
+                          appendLine("Mode: ${request.mode.name}")
+                          appendLine("Student grade: ${request.context.grade.ifBlank { "Not set" }}")
+                          if (request.context.subjects.isNotEmpty()) appendLine("Subjects: ${request.context.subjects.joinToString()}")
+                          if (request.context.weakTopics.isNotEmpty()) appendLine("Weak topics: ${request.context.weakTopics.joinToString()}")
+                          if (request.context.recentMistakes.isNotEmpty()) appendLine("Recent mistakes: ${request.context.recentMistakes.joinToString()}")
+                          appendLine("Give a clear, age-appropriate educational answer and follow the selected learning mode.")
+                          append("Student: ${request.message}")
+                      }
                       val payload = JSONObject().apply {
                           put("contents", JSONArray().put(JSONObject().apply {
                               put("role", "user")
-                              put("parts", JSONArray().put(JSONObject().put("text", buildPrompt(request))))
+                              put("parts", JSONArray().put(JSONObject().put("text", prompt)))
                           }))
                           put("generationConfig", JSONObject().apply {
                               put("temperature", 0.4)
@@ -158,7 +156,6 @@ jobs:
                           })
                       }
                       connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
-
                       val code = connection.responseCode
                       val stream = if (code in 200..299) connection.inputStream else connection.errorStream
                       val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
@@ -166,36 +163,17 @@ jobs:
                           val message = runCatching { JSONObject(body).optJSONObject("error")?.optString("message") }.getOrNull().orEmpty()
                           error(if (message.isBlank()) "Gemini HTTP $code" else message)
                       }
-
                       val candidates = JSONObject(body).optJSONArray("candidates") ?: error("Gemini returned no candidates")
-                      val text = buildString {
+                      buildString {
                           for (i in 0 until candidates.length()) {
                               val parts = candidates.optJSONObject(i)?.optJSONObject("content")?.optJSONArray("parts") ?: continue
                               for (j in 0 until parts.length()) {
-                                  val partText = parts.optJSONObject(j)?.optString("text").orEmpty()
-                                  if (partText.isNotBlank()) {
-                                      if (isNotEmpty()) append('\n')
-                                      append(partText)
-                                  }
+                                  val value = parts.optJSONObject(j)?.optString("text").orEmpty()
+                                  if (value.isNotBlank()) { if (isNotEmpty()) append('\n'); append(value) }
                               }
                           }
-                      }.trim()
-                      if (text.isBlank()) error("Gemini returned an empty response")
-                      text
+                      }.trim().ifBlank { error("Gemini returned an empty response") }
                   }
-              }
-
-              private fun buildPrompt(request: LlmRequest): String = buildString {
-                  appendLine("You are Evolution AI, a supportive school learning tutor.")
-                  appendLine("Mode: ${request.mode.name}")
-                  appendLine("Student grade: ${request.context.grade.ifBlank { "Not set" }}")
-                  if (request.context.subjects.isNotEmpty()) appendLine("Subjects: ${request.context.subjects.joinToString()}")
-                  if (request.context.weakTopics.isNotEmpty()) appendLine("Weak topics: ${request.context.weakTopics.joinToString()}")
-                  if (request.context.recentMistakes.isNotEmpty()) appendLine("Recent mistakes: ${request.context.recentMistakes.joinToString()}")
-                  appendLine()
-                  appendLine("Give a clear, age-appropriate educational answer. Teach the reasoning and follow the selected learning mode.")
-                  appendLine()
-                  append("Student: ${request.message}")
               }
           }
           KOTLIN
@@ -203,15 +181,23 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           p = Path('/tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/src/main/java/com/cyberpulse/evolutionlearning/ai/AiViewModel.kt')
-          s = p.read_text().replace('LlmRouter(CloudLlmProvider(), LocalLlmProvider())', 'LlmRouter(CloudLlmProvider(app), LocalLlmProvider())')
-          p.write_text(s)
+          p.write_text(p.read_text().replace('LlmRouter(CloudLlmProvider(), LocalLlmProvider())', 'LlmRouter(CloudLlmProvider(app), LocalLlmProvider())'))
           PY
 
-          grep -q '"current_key"' "$PROJECT/app/google-services.json"
-          grep -q 'R.string.google_api_key' "$PROJECT/app/src/main/java/com/cyberpulse/evolutionlearning/ai/CloudLlmProvider.kt"
-          grep -q 'gemini-3.7-flash' "$PROJECT/app/src/main/java/com/cyberpulse/evolutionlearning/ai/CloudLlmProvider.kt"
+          # Apply the Compose presentation layer recreated from the uploaded v5 no-passwords design.
+          cat .chatgpt-build/uiov.part0 .chatgpt-build/uiov.part1 > /tmp/uiov.b64
+          base64 --decode /tmp/uiov.b64 > /tmp/uiov.zip
+          unzip -t /tmp/uiov.zip
+          unzip -oq /tmp/uiov.zip -d "$PROJECT"
 
-      - name: Build Gemini-wired debug APK
+          sed -i 's/versionCode = 62/versionCode = 64/' "$PROJECT/app/build.gradle.kts"
+          sed -i 's/versionName = "6.0.0-dev2"/versionName = "6.0.1-v5-visual-match"/' "$PROJECT/app/build.gradle.kts"
+
+          grep -q 'R.string.google_api_key' "$PROJECT/app/src/main/java/com/cyberpulse/evolutionlearning/ai/CloudLlmProvider.kt"
+          grep -q 'EvoCyan' "$PROJECT/app/src/main/java/com/cyberpulse/evolutionlearning/ui/screens/Common.kt"
+          grep -q 'Learn, Track, Grow' "$PROJECT/app/src/main/java/com/cyberpulse/evolutionlearning/ui/screens/HomeScreen.kt"
+
+      - name: Build V5 visual-match APK
         id: build
         continue-on-error: true
         working-directory: /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
@@ -220,19 +206,18 @@ jobs:
           set +e
           gradle --no-daemon --stacktrace :app:assembleDebug 2>&1 | tee /tmp/evolution-build.log
           status=${PIPESTATUS[0]}
-          echo "$status" > /tmp/evolution-build.status
           exit "$status"
 
       - name: Upload compiler log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Evolution-Learning-6.0-Gemini-build-log
+          name: Evolution-Learning-6.0.1-V5-Visual-Match-build-log
           path: /tmp/evolution-build.log
           if-no-files-found: warn
           retention-days: 2
 
-      - name: Verify APK and Gemini wiring
+      - name: Verify APK
         if: steps.build.outcome == 'success'
         working-directory: /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2
         shell: bash
@@ -243,11 +228,11 @@ jobs:
           unzip -p app/build/outputs/apk/debug/app-debug.apk classes*.dex | strings | grep -q 'x-goog-api-key'
           ls -lh app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload Evolution Gemini APK
+      - name: Upload V5 visual-match APK
         if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: Evolution-Learning-6.0-Gemini-Wired-APK
+          name: Evolution-Learning-6.0.1-V5-Visual-Match-APK
           path: |
             /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/build/outputs/apk/debug/app-debug.apk
             /tmp/evolution-src/EvolutionLearning-Android-v6-Dev2/app/build/outputs/apk/debug/app-debug.apk.sha256
@@ -258,5 +243,5 @@ jobs:
         if: steps.build.outcome == 'failure'
         shell: bash
         run: |
-          tail -n 220 /tmp/evolution-build.log || true
+          tail -n 240 /tmp/evolution-build.log || true
           exit 1
