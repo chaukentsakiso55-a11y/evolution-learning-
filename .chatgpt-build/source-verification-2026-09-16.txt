@@ -1,0 +1,7 @@
+Evolution Learning native rebuild source verification
+Date: 2026-09-16
+Uploaded standalone HTML SHA-256: 3a4892b151554802870aa6545fb39420058c8e434a03dfe0180b892c85bd3907
+Uploaded google-services.json SHA-256: c97125e8f77174c75afd8df6108357fd9622b92d45d792a58384de7cb449b4d4
+Firebase project: evolution-learning-d42bd
+Android package: com.cyberpulse.evolutionlearning
+Purpose: trigger a fresh native Kotlin/Compose APK rebuild after validating the uploaded Evolution Learning v5 HTML and Firebase configuration.
