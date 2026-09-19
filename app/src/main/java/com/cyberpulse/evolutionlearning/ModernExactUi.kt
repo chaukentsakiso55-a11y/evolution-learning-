@@ -791,7 +791,7 @@ private fun MProfile(repository: FirebaseRepository, profile: UserProfile, progr
             MCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("🛡️ System Security", color = Mgood, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); MPill("LOCAL CHECKS", Mgood) }
                 Text("Review real protection state. Evolution learning does not pretend to run an antivirus scan or invent a threat score.", color = Msub, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-                MSecondary("Review Study Lock Permission", Modifier.fillMaxWidth()) { info = "Study Lock blocking works only after you enable Evolution learning Study Lock in Android Accessibility settings." }
+                MSecondary("Review Study Lock Permission", Modifier.fillMaxWidth()) { info = "Study Lock blocking works only after you enable the Study Lock accessibility permission for Evolution learning in Android settings." }
             }
         }
         item {
