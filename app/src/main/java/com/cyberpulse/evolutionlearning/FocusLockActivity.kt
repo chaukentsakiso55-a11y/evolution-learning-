@@ -307,7 +307,7 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
             onDismissRequest = { showAccessibilityHelp = false },
             title = { Text("Enable Study Lock blocking") },
             text = {
-                Text("To block other apps during a mission, enable Evolution learning Study Lock in Android Accessibility settings. Then return here and tap Start Mission again.")
+                Text("To block other apps during a mission, enable the Study Lock accessibility permission for Evolution learning in Android settings. Then return here and tap Start Mission again.")
             },
             confirmButton = {
                 Button(onClick = {
