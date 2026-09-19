@@ -796,6 +796,30 @@ private fun MProfile(repository: FirebaseRepository, profile: UserProfile, progr
         }
         item {
             MCard {
+                Text("ℹ️ About Evolution Learning", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Evolution Learning is a Cyber Pulse learning product built to help learners learn, practise, improve and evolve. It was made by Cyber Pulse, made by Dapulf, and belongs to Cyber Pulse.",
+                    color = Msub,
+                    fontSize = 11.sp,
+                    lineHeight = 17.sp
+                )
+                Spacer(Modifier.height(10.dp))
+                Text("Made by: Dapulf · Ntsakiso Chauke (Darthwolf)", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Text("Owner: Cyber Pulse", color = Msub, fontSize = 11.sp)
+                Text("Cyber Pulse email: Cyberpulse546@gmail.com", color = Msub, fontSize = 11.sp)
+                Text("Developer email: Chaukentsakiso55@gmail.com", color = Msub, fontSize = 11.sp)
+                Text("Phone: +27 72 427 1860 · 078 826 5274", color = Msub, fontSize = 11.sp)
+                Spacer(Modifier.height(8.dp))
+                Text("Cyber Pulse: cyber-pulse-info.netlify.app", color = Maccent, fontSize = 10.sp)
+                Text("Learning libraries: Cyber-learn-projects.netlify.app", color = Maccent, fontSize = 10.sp)
+                Text("Downloads: Cyber-pulse-download.netlify.app", color = Maccent, fontSize = 10.sp)
+                Text("GitHub: github.com/chaukentsakiso55-a11y/CYBER-PULSE-", color = Maccent, fontSize = 10.sp)
+            }
+        }
+
+        item {
+            MCard {
                 Text("⚙️ App Settings", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) { Text("Your Grade", color = Msub, fontSize = 12.sp); Text(profile.grade, fontSize = 12.sp) }
                 MSecondary("Send Password Reset", Modifier.fillMaxWidth()) { repository.sendPasswordReset(profile.email) { info = if (it.isSuccess) "Password reset email sent." else it.exceptionOrNull()?.localizedMessage } }
