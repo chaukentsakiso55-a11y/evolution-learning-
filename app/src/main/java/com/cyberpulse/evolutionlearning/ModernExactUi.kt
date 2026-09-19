@@ -167,7 +167,7 @@ private fun MSplash(onStart: () -> Unit) {
                     contentAlignment = Alignment.Center
                 ) { Text("📚", fontSize = 40.sp) }
                 Spacer(Modifier.height(18.dp))
-                Text("Evolution learning", color = Maccent, fontSize = 28.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                Text("Evolution-Learning", color = Maccent, fontSize = 28.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                 Text("YOUR FUTURE, BUILT ONE SESSION AT A TIME", color = Msub, fontSize = 11.sp, letterSpacing = 3.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
                 Text("v5.0 · Modern · Focused · Built for real learning", color = Msub, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp, bottom = 22.dp))
                 MPrimary("Begin Your Journey →", onClick = onStart)
@@ -749,13 +749,13 @@ private fun MQuiz(repository: FirebaseRepository, padding: PaddingValues, openAi
 @Composable
 private fun MStats(progress: Progress, goals: List<StudyGoal>, padding: PaddingValues) {
     MList(padding) {
-        item { MSection("📊 Real Progress", "Only activity recorded by Evolution learning") }
+        item { MSection("📊 Real Progress", "Only activity recorded by Evolution-Learning") }
         item { Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) { MMetric("⏱️", mTime(progress.studySeconds), "Learning time", Modifier.weight(1f)); MMetric("✏️", progress.quizzesCompleted.toString(), "Completed quizzes", Modifier.weight(1f)) } }
         item { Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) { MMetric("🎯", progress.accuracyPercent?.let { "$it%" } ?: "—", "Average quiz accuracy", Modifier.weight(1f)); MMetric("🧠", progress.flashcardsReviewed.toString(), "Flashcards reviewed", Modifier.weight(1f)) } }
         item { Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) { MMetric("🔒", progress.focusSessionsCompleted.toString(), "Completed focus sessions", Modifier.weight(1f)); MMetric("✅", progress.homeworkCompleted.toString(), "Homework completed", Modifier.weight(1f)) } }
         item { MCard { Text("🧾 Quiz history", fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(8.dp)); if (progress.quizzesCompleted == 0L) MEmpty("No completed quizzes yet. Your real results will appear here.") else MActivity("Completed quizzes", "Questions answered: ${progress.questionsAnswered}", progress.quizzesCompleted.toString()) { } } }
         item { MCard { Text("🎯 Goals", fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Spacer(Modifier.height(8.dp)); if (goals.isEmpty()) MEmpty("No goals tracked yet.") else goals.forEach { goal -> MActivity(goal.title, if (goal.completed) "Completed" else "Active", if (goal.completed) "✓" else "•") { } } } }
-        item { MCard { Text("⏱️ App activity", fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("Study time, quizzes, flashcards, focus sessions and homework are based only on actions recorded by Evolution learning.", color = Msub, fontSize = 11.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp)) } }
+        item { MCard { Text("⏱️ App activity", fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("Study time, quizzes, flashcards, focus sessions and homework are based only on actions recorded by Evolution-Learning.", color = Msub, fontSize = 11.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp)) } }
     }
 }
 
@@ -790,16 +790,16 @@ private fun MProfile(repository: FirebaseRepository, profile: UserProfile, progr
         item {
             MCard {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("🛡️ System Security", color = Mgood, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); MPill("LOCAL CHECKS", Mgood) }
-                Text("Review real protection state. Evolution learning does not pretend to run an antivirus scan or invent a threat score.", color = Msub, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
-                MSecondary("Review Study Lock Permission", Modifier.fillMaxWidth()) { info = "Study Lock blocking works only after you enable the Study Lock accessibility permission for Evolution learning in Android settings." }
+                Text("Review real protection state. Evolution-Learning does not pretend to run an antivirus scan or invent a threat score.", color = Msub, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(vertical = 10.dp))
+                MSecondary("Review Study Lock Permission", Modifier.fillMaxWidth()) { info = "Study Lock blocking works only after you enable the Study Lock accessibility permission for Evolution-Learning in Android settings." }
             }
         }
         item {
             MCard {
-                Text("ℹ️ About Evolution learning", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("ℹ️ About Evolution-Learning", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Evolution learning is a Cyber Pulse learning product built to help learners learn, practise, improve and evolve. It was made by Cyber Pulse, made by Dapulf, and belongs to Cyber Pulse.",
+                    "Evolution-Learning is a Cyber Pulse learning product built to help learners learn, practise, improve and evolve. It was made by Cyber Pulse, made by Dapulf, and belongs to Cyber Pulse.",
                     color = Msub,
                     fontSize = 11.sp,
                     lineHeight = 17.sp
@@ -836,7 +836,7 @@ private fun MProfile(repository: FirebaseRepository, profile: UserProfile, progr
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = repository::signOut, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))) { Text("Sign Out") }
                 info?.let { Text(it, color = Msub, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 10.dp)) }
-                Text("Evolution learning", color = Color.White.copy(alpha = .2f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
+                Text("Evolution-Learning", color = Color.White.copy(alpha = .2f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
             }
         }
     }
