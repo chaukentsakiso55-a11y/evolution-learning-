@@ -153,7 +153,7 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    if (active) "Stay inside Evolution Learning until the mission ends or you choose to abort."
+                    if (active) "Stay inside Evolution learning until the mission ends or you choose to abort."
                     else "Set a mission PIN and duration, then activate all-app focus blocking.",
                     color = FocusMuted,
                     fontSize = 11.sp,
@@ -264,7 +264,7 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Android requires Accessibility permission for Evolution Learning to return you to Study Lock when another app opens. You grant that permission yourself in system Settings.",
+                        "Android requires Accessibility permission for Evolution learning to return you to Study Lock when another app opens. You grant that permission yourself in system Settings.",
                         color = FocusMuted,
                         fontSize = 9.sp,
                         lineHeight = 14.sp,
@@ -307,7 +307,7 @@ private fun FocusLockScreen(onFinish: () -> Unit) {
             onDismissRequest = { showAccessibilityHelp = false },
             title = { Text("Enable Study Lock blocking") },
             text = {
-                Text("To block other apps during a mission, enable Evolution Learning Study Lock in Android Accessibility settings. Then return here and tap Start Mission again.")
+                Text("To block other apps during a mission, enable Evolution learning Study Lock in Android Accessibility settings. Then return here and tap Start Mission again.")
             },
             confirmButton = {
                 Button(onClick = {
