@@ -167,7 +167,7 @@ private fun MSplash(onStart: () -> Unit) {
                     contentAlignment = Alignment.Center
                 ) { Text("📚", fontSize = 40.sp) }
                 Spacer(Modifier.height(18.dp))
-                Text("EVOLUTION LEARNING", color = Maccent, fontSize = 28.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                Text("Evolution learning", color = Maccent, fontSize = 28.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                 Text("YOUR FUTURE, BUILT ONE SESSION AT A TIME", color = Msub, fontSize = 11.sp, letterSpacing = 3.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
                 Text("v5.0 · Modern · Focused · Built for real learning", color = Msub, fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp, bottom = 22.dp))
                 MPrimary("Begin Your Journey →", onClick = onStart)
@@ -836,7 +836,7 @@ private fun MProfile(repository: FirebaseRepository, profile: UserProfile, progr
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = repository::signOut, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7F1D1D))) { Text("Sign Out") }
                 info?.let { Text(it, color = Msub, fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 10.dp)) }
-                Text("Evolution Learning v5.0 · Your learning data stays yours", color = Color.White.copy(alpha = .2f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
+                Text("Evolution learning", color = Color.White.copy(alpha = .2f), fontSize = 10.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
             }
         }
     }
