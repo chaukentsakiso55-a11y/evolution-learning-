@@ -1,7 +1,7 @@
 package com.cyberpulse.evolutionlearning
 
 val appSpec = AppSpec(
-    name = "Evolution learning",
+    name = "Evolution-Learning",
     shortName = "EL",
     tagline = "Learn → practise → improve → evolve.",
     hero = "Build a learning loop that adapts as your knowledge, habits and confidence grow.",
@@ -23,5 +23,5 @@ val appSpec = AppSpec(
         AppMetric("Subjects", "Flexible"),
         AppMetric("AI tools", "Phase 2")
     ),
-    about = "Evolution learning is a Cyber Pulse education product built around a simple loop: learn, practise, improve and evolve."
+    about = "Evolution-Learning is a Cyber Pulse education product built around a simple loop: learn, practise, improve and evolve."
 )
