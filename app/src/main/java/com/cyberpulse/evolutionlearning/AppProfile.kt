@@ -23,5 +23,5 @@ val appSpec = AppSpec(
         AppMetric("Subjects", "Flexible"),
         AppMetric("AI tools", "Phase 2")
     ),
-    about = "Evolution Learning is a Cyber Pulse education product built around a simple loop: learn, practise, improve and evolve."
+    about = "Evolution learning is a Cyber Pulse education product built around a simple loop: learn, practise, improve and evolve."
 )
