@@ -1,4 +1,4 @@
-# Evolution learning v5 — Firebase setup
+# Evolution-Learning v5 — Firebase setup
 
 ## Android identity
 - Package/application ID: `com.cyberpulse.evolutionlearning`
@@ -22,13 +22,13 @@ All progress starts at zero. The app increments progress only when real activity
 Use user-isolated rules so a signed-in user can only access their own `users/{uid}` tree.
 
 ## Realtime Database
-The current Firebase config includes a Realtime Database URL, but Evolution learning v5 does not use Realtime Database yet. Firestore is the source of truth.
+The current Firebase config includes a Realtime Database URL, but Evolution-Learning v5 does not use Realtime Database yet. Firestore is the source of truth.
 
 ## App Check
 Do not enforce App Check yet. After a signed APK/project exists:
 1. Run `./gradlew signingReport`.
 2. Copy the SHA-256 fingerprint for the desired signing certificate.
-3. Firebase Console → App Check → Evolution learning → Play Integrity.
+3. Firebase Console → App Check → Evolution-Learning → Play Integrity.
 4. Register the SHA-256.
 5. Test App Check before enabling enforcement.
 
