@@ -1,6 +1,10 @@
 package com.cyberpulse.evolutionlearning.ai
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import com.google.firebase.Firebase
+import com.google.firebase.FirebaseApp
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 
@@ -87,9 +91,27 @@ class AiRepository {
             """.trimIndent()
         }
 
-        val response = model.generateContent(prompt)
-        response.text?.trim().takeUnless { it.isNullOrBlank() }
-            ?: error("The AI returned no text. Please try again.")
+        if (hasValidatedInternet()) {
+            try {
+                val response = model.generateContent(prompt)
+                response.text?.trim().takeUnless { it.isNullOrBlank() }
+                    ?: OfflineLlmEngine.complete(prompt)
+            } catch (_: Throwable) {
+                OfflineLlmEngine.complete(prompt)
+            }
+        } else {
+            OfflineLlmEngine.complete(prompt)
+        }
+    }
+
+    private fun hasValidatedInternet(): Boolean {
+        val context = FirebaseApp.getInstance().applicationContext
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 }
 
