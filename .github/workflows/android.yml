@@ -3,20 +3,38 @@ on:
   push:
     branches: ["main"]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
+
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Fetch bundled offline LLM
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/assets/models
+          curl -L --fail --retry 4 --retry-all-errors \
+            -o app/src/main/assets/models/SmolLM2-135M-Instruct-Q4_K_M.gguf \
+            "https://huggingface.co/agentlans/SmolLM2-135M-Instruct-GGUF/resolve/main/Q4_K_M.gguf?download=true"
+          echo "c535da5e19029c4dea2d041fc3cbf5baaf386a04162c2dbd1ba9fdaae7f378d3  app/src/main/assets/models/SmolLM2-135M-Instruct-Q4_K_M.gguf" | sha256sum -c -
+
       - run: chmod +x gradlew
-      - run: ./gradlew testDebugUnitTest assembleDebug --stacktrace
+
+      - name: Test and build unsigned release APK
+        run: ./gradlew testDebugUnitTest assembleRelease --stacktrace
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Evolution-Learning-v5-Firebase-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: Evolution-Learning-v5.5.0-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
