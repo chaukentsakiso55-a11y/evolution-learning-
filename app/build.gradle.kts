@@ -13,8 +13,8 @@ android {
         applicationId = "com.cyberpulse.evolutionlearning"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "5.4.0-exact-modern-html"
+        versionCode = 10
+        versionName = "5.5.0-final-offline"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -70,6 +70,7 @@ dependencies {
     releaseImplementation("com.google.firebase:firebase-appcheck-playintegrity")
 
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("dev.ffmpegkit-maintained:llama-android:0.1.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
