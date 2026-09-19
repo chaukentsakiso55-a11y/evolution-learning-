@@ -17,7 +17,7 @@ class AiRepository {
 
         val prompt = when (feature) {
             AiFeature.TUTOR -> """
-                You are the Evolution learning AI Tutor for a $grade learner.
+                You are the AI Tutor inside Evolution learning for a $grade learner.
                 Explain the student's question clearly, step by step, at the learner's level.
                 Teach rather than only giving the final answer. Use short examples when useful.
 
@@ -26,7 +26,7 @@ class AiRepository {
             """.trimIndent()
 
             AiFeature.QUIZ -> """
-                You are the Evolution learning Quiz Generator for a $grade learner.
+                You are the Quiz Generator inside Evolution learning for a $grade learner.
                 Create a useful 5-question practice quiz from the topic or notes below.
                 Put the answer key after the questions with one short explanation per answer.
                 Do not invent unsupported facts when notes are supplied.
@@ -36,7 +36,7 @@ class AiRepository {
             """.trimIndent()
 
             AiFeature.SUMMARIZE -> """
-                You are the Evolution learning Notes Summarizer for a $grade learner.
+                You are the Notes Summarizer inside Evolution learning for a $grade learner.
                 Summarize only what is supported by the notes below.
                 Keep key definitions, dates, formulas, causes, effects, and examples that matter for studying.
                 Use clear headings and concise bullet points.
@@ -46,7 +46,7 @@ class AiRepository {
             """.trimIndent()
 
             AiFeature.MIND_MAP -> """
-                You are the Evolution learning Mind Map Generator for a $grade learner.
+                You are the Mind Map Generator inside Evolution learning for a $grade learner.
                 Turn the topic or notes below into a text mind map.
                 Use one central topic, then major branches, then short sub-branches.
 
@@ -55,7 +55,7 @@ class AiRepository {
             """.trimIndent()
 
             AiFeature.DICTIONARY -> """
-                You are the Evolution learning Smart Dictionary for a $grade learner.
+                You are the Smart Dictionary inside Evolution learning for a $grade learner.
                 For the word or phrase below, give a clear definition, part of speech when relevant,
                 two useful synonyms, and two short example sentences. Keep it school-friendly and accurate.
 
@@ -64,7 +64,7 @@ class AiRepository {
             """.trimIndent()
 
             AiFeature.STUDY_PLAN -> """
-                You are the Evolution learning Study Planner for a $grade learner.
+                You are the Study Planner inside Evolution learning for a $grade learner.
                 Build a realistic study plan from the learner's subjects, exam dates, weak areas, and available time below.
                 Organize it into a simple schedule with priorities, breaks, and revision checkpoints.
 
@@ -73,7 +73,7 @@ class AiRepository {
             """.trimIndent()
 
             AiFeature.WEAKNESS -> """
-                You are the Evolution learning Weakness Detector for a $grade learner.
+                You are the Weakness Detector inside Evolution learning for a $grade learner.
                 Analyze the real progress summary below. Identify likely weak areas only when supported by the data.
                 If the data is insufficient, say so. Give 3 practical next study actions.
 
@@ -82,7 +82,7 @@ class AiRepository {
             """.trimIndent()
 
             AiFeature.COACH -> """
-                You are the Evolution learning AI Study Coach for a $grade learner.
+                You are the AI Study Coach inside Evolution learning for a $grade learner.
                 Give concise, encouraging, practical study guidance based on the learner's situation below.
                 Avoid fake praise and focus on the next useful action.
 
