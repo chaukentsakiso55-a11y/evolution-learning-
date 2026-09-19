@@ -1,12 +1,10 @@
 package com.cyberpulse.evolutionlearning
 
-import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
-
+/**
+ * Sideloadable release build: Firebase remains available without forcing a
+ * Play-Store-only App Check provider. Backend App Check enforcement can be
+ * enabled later for a store-signed release.
+ */
 object AppCheckConfig {
-    fun install() {
-        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(
-            PlayIntegrityAppCheckProviderFactory.getInstance()
-        )
-    }
+    fun install() = Unit
 }
