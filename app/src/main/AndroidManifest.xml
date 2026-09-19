@@ -6,7 +6,7 @@
     <application
         android:allowBackup="true"
         android:icon="@drawable/evolution_learning_app_icon"
-        android:label="Evolution learning"
+        android:label="Evolution-Learning"
         android:roundIcon="@drawable/evolution_learning_app_icon"
         android:supportsRtl="true"
         android:theme="@style/Theme.CyberPulse">
@@ -21,7 +21,7 @@
             android:name=".FocusAccessibilityService"
             android:enabled="true"
             android:exported="true"
-            android:label="Evolution learning"
+            android:label="Evolution-Learning"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
