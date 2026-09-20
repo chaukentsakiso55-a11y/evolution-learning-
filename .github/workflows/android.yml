@@ -30,11 +30,11 @@ jobs:
 
       - run: chmod +x gradlew
 
-      - name: Test and build unsigned release APK
+      - name: Test and build signed release APK
         run: ./gradlew testDebugUnitTest assembleRelease --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Evolution-Learning-v5.5.0-unsigned
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: Evolution-Learning-installable
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
