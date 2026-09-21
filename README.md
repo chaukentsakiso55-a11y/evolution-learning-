@@ -1,8 +1,8 @@
-# Evolution-Learning
+# Evolution-learning
 
 Learn → practise → improve → evolve.
 
-This repository contains the first native Android foundation for **Evolution-Learning**, a Cyber Pulse product.
+This repository contains the first native Android foundation for **Evolution-learning**, a Cyber Pulse product.
 
 ## Included now
 
