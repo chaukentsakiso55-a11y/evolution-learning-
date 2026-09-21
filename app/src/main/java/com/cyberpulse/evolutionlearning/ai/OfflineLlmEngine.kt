@@ -8,7 +8,7 @@ import kotlinx.coroutines.sync.withLock
 import java.io.File
 
 /**
- * Small, fully on-device fallback model for Evolution-Learning.
+ * Small, fully on-device fallback model for Evolution-learning.
  * The GGUF file is downloaded by CI and packaged under assets/models.
  */
 object OfflineLlmEngine {
@@ -36,7 +36,7 @@ object OfflineLlmEngine {
             val result = Llama.complete(
                 model,
                 prompt = prompt,
-                systemPrompt = "You are Evolution-Learning, a concise school learning assistant. Explain clearly, teach step by step, and say when you are uncertain. Keep responses suitable for the learner's grade.",
+                systemPrompt = "You are Evolution-learning, a concise school learning assistant. Explain clearly, teach step by step, and say when you are uncertain. Keep responses suitable for the learner's grade.",
                 maxTokens = 384,
             )
             result.text.trim().ifBlank { error("The offline model returned no text.") }
