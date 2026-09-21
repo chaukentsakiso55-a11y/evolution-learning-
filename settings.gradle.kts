@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Evolution-Learning"
+rootProject.name = "Evolution-learning"
 include(":app")
